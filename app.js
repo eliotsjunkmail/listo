@@ -57,30 +57,43 @@ listEl.addEventListener("change", (event) => {
   if (!target.matches(".toggle")) return;
   const id = target.closest(".todo-item")?.dataset.id;
   if (!id) return;
-
-  todos = todos.map((todo) =>
-    todo.id === id ? { ...todo, done: target.checked } : todo
-  );
-  persist();
-  render();
+  setDone(id, target.checked);
 });
 
 listEl.addEventListener("click", (event) => {
   const target = /** @type {HTMLElement} */ (event.target);
-  const deleteBtn = target.closest(".btn-delete");
-  if (!deleteBtn) return;
+  const item = target.closest(".todo-item");
+  if (!item) return;
 
-  const item = deleteBtn.closest(".todo-item");
-  const id = item?.dataset.id;
-  if (!id || !item) return;
+  const id = item.dataset.id;
+  if (!id) return;
 
-  item.classList.add("is-leaving");
-  window.setTimeout(() => {
-    todos = todos.filter((todo) => todo.id !== id);
-    persist();
-    render();
-  }, 200);
+  if (target.closest(".btn-delete")) {
+    item.classList.add("is-leaving");
+    window.setTimeout(() => {
+      todos = todos.filter((todo) => todo.id !== id);
+      persist();
+      render();
+    }, 200);
+    return;
+  }
+
+  if (target.closest(".toggle")) return;
+
+  const todo = todos.find((entry) => entry.id === id);
+  if (!todo) return;
+  setDone(id, !todo.done);
 });
+
+/**
+ * @param {string} id
+ * @param {boolean} done
+ */
+function setDone(id, done) {
+  todos = todos.map((todo) => (todo.id === id ? { ...todo, done } : todo));
+  persist();
+  render();
+}
 
 function loadTodos() {
   try {
