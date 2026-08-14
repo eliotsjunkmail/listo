@@ -15,6 +15,10 @@
   let targetGx = 0;
   let targetGy = 1;
 
+  // How strongly phone roll maps into the water line (1 = true horizon lock)
+  const SENSITIVITY = 0.32;
+  const SMOOTH = 4.5; // lower = slower / less twitchy
+
   const FILL = 0.55;
   let phase = 0;
   let last = performance.now();
