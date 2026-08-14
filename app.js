@@ -129,9 +129,11 @@
     const digits = k >= 100 ? 0 : 1;
     return (n < 0 ? "−" : "") + "$" + k.toFixed(digits).replace(/\.0$/, "") + "K";
   }
+
+  function slimPrice(n) {
     if (n == null || Number.isNaN(n) || !Number.isFinite(n)) return "—";
     const abs = Math.abs(n);
-    const formatted = abs.toFixed(abs >= 10 ? 2 : 2).replace(/\.?0+$/, "");
+    const formatted = abs.toFixed(2).replace(/\.?0+$/, "");
     const body = formatted.includes(".") ? formatted : abs.toFixed(1);
     return (n < 0 ? "−" : "") + body;
   }
@@ -238,7 +240,11 @@
         "</strong>" +
         (move ? ", " + move + " for today" : "") +
         asOf +
-        ".";
+        ". The " +
+        symbol +
+        " holding is valued at <strong>" +
+        compactK(stockValue) +
+        "</strong>.";
       let second;
       if (goalPrice == null) {
         second = "";
