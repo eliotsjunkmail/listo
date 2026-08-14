@@ -2,59 +2,29 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Frogger</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>Glass</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Bungee&family=IBM+Plex+Sans:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="atmosphere" aria-hidden="true"></div>
+    <canvas id="glass" aria-label="Drinking glass liquid simulation"></canvas>
 
-    <main class="shell">
-      <header class="top">
-        <h1 class="brand">Frogger</h1>
-        <div class="hud" aria-live="polite">
-          <span>Score <strong id="score">0</strong></span>
-          <span>Lives <strong id="lives">3</strong></span>
-          <span>Level <strong id="level">1</strong></span>
-          <span>Diff <strong id="diff-label">Insane</strong></span>
-        </div>
-      </header>
+    <div id="hud" class="hud">
+      <p class="brand">Glass</p>
+      <p class="sub" id="status">Tilt your phone to swirl the drink</p>
+    </div>
 
-      <div class="stage-wrap">
-        <canvas id="game" width="390" height="520" aria-label="Frogger game board"></canvas>
-        <div id="overlay" class="overlay">
-          <p class="overlay-title" id="overlay-title">Frogger</p>
-          <p class="overlay-copy" id="overlay-copy">
-            Pick a difficulty. Insane is the original hardest setting.
-          </p>
-          <div class="diff-picker" role="group" aria-label="Difficulty">
-            <button type="button" class="diff-btn" data-diff="1">Easy</button>
-            <button type="button" class="diff-btn" data-diff="2">Normal</button>
-            <button type="button" class="diff-btn" data-diff="3">Hard</button>
-            <button type="button" class="diff-btn" data-diff="4">Expert</button>
-            <button type="button" class="diff-btn is-active" data-diff="5">Insane</button>
-          </div>
-          <button type="button" id="start-btn" class="btn">Start</button>
-        </div>
-      </div>
-
-      <div class="controls" aria-label="Move frog">
-        <button type="button" class="pad" data-dir="up" aria-label="Up">▲</button>
-        <div class="mid-row">
-          <button type="button" class="pad" data-dir="left" aria-label="Left">◀</button>
-          <button type="button" class="pad" data-dir="down" aria-label="Down">▼</button>
-          <button type="button" class="pad" data-dir="right" aria-label="Right">▶</button>
-        </div>
-      </div>
-
-      <p class="hint">Arrow keys or WASD · tap pads on phone</p>
-    </main>
+    <button type="button" id="enable" class="enable" hidden>
+      Enable motion
+    </button>
 
     <script src="app.js"></script>
   </body>

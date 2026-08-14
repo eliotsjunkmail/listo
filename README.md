@@ -1,30 +1,23 @@
-# Frogger
+# Glass
 
-Browser Frogger: hop across traffic, ride logs and turtles, fill all five homes.
+Your phone screen becomes a drinking glass. Amber liquid tilts and swirls with device motion.
 
 ## Play
 
-Open `index.html`, or:
+Open on a phone (best):
+
+https://eliotsjunkmail.github.io/listo/
+
+Or locally:
 
 ```bash
 npx --yes serve .
 ```
 
-If GitHub Pages is enabled: https://eliotsjunkmail.github.io/listo/
+1. Tap **Enable motion** if prompted (required on iPhone)
+2. Tilt and roll the phone — the drink moves with gravity
+3. On desktop, drag to tip the glass
 
-## Difficulties
+## Stack
 
-1. **Easy** — slow traffic, wide gaps, 5 lives, turtles don’t dive  
-2. **Normal** — a bit faster, 4 lives  
-3. **Hard** — denser lanes, diving turtles  
-4. **Expert** — near full speed  
-5. **Insane** — original hardest settings  
-
-## Controls
-
-- Arrow keys or WASD
-- On-screen pads on phone
-
-## Goal
-
-Reach the top pads without getting hit by cars or falling in the water. Fill all five homes to clear the level.
+Vanilla HTML canvas + device orientation / accelerometer.

@@ -1,530 +1,409 @@
 (() => {
-  const COLS = 13;
-  const ROWS = 13;
-  const TILE = 30;
-  const WIDTH = COLS * TILE;
-  const HEIGHT = ROWS * TILE;
-
-  const canvas = document.getElementById("game");
+  const canvas = document.getElementById("glass");
   const ctx = canvas.getContext("2d");
-  const scoreEl = document.getElementById("score");
-  const livesEl = document.getElementById("lives");
-  const levelEl = document.getElementById("level");
-  const diffLabelEl = document.getElementById("diff-label");
-  const overlay = document.getElementById("overlay");
-  const overlayTitle = document.getElementById("overlay-title");
-  const overlayCopy = document.getElementById("overlay-copy");
-  const startBtn = document.getElementById("start-btn");
-  const diffButtons = document.querySelectorAll(".diff-btn");
+  const enableBtn = document.getElementById("enable");
+  const statusEl = document.getElementById("status");
 
-  /** Difficulty 5 = current/original hardest settings */
-  const DIFFICULTIES = {
-    1: {
-      name: "Easy",
-      speed: 0.42,
-      gap: 1.55,
-      lives: 5,
-      roadLanes: 3,
-      dive: false,
-      levelRamp: 0.08,
-    },
-    2: {
-      name: "Normal",
-      speed: 0.55,
-      gap: 1.35,
-      lives: 4,
-      roadLanes: 4,
-      dive: true,
-      diveSurface: 4.2,
-      diveUnder: 0.7,
-      levelRamp: 0.1,
-    },
-    3: {
-      name: "Hard",
-      speed: 0.72,
-      gap: 1.18,
-      lives: 3,
-      roadLanes: 5,
-      dive: true,
-      diveSurface: 3.6,
-      diveUnder: 1.0,
-      levelRamp: 0.14,
-    },
-    4: {
-      name: "Expert",
-      speed: 0.86,
-      gap: 1.08,
-      lives: 3,
-      roadLanes: 5,
-      dive: true,
-      diveSurface: 3.4,
-      diveUnder: 1.15,
-      levelRamp: 0.16,
-    },
-    5: {
-      name: "Insane",
-      speed: 1,
-      gap: 1,
-      lives: 3,
-      roadLanes: 5,
-      dive: true,
-      diveSurface: 3.6,
-      diveUnder: 1.2,
-      levelRamp: 0.18,
-    },
-  };
+  let width = 0;
+  let height = 0;
+  let dpr = 1;
 
-  /** @type {"title" | "playing" | "dead" | "win" | "over"} */
-  let state = "title";
-  let score = 0;
-  let lives = 3;
-  let level = 1;
-  /** @type {1 | 2 | 3 | 4 | 5} */
-  let difficulty = 5;
-  let homes = [false, false, false, false, false];
-  let frog = createFrog();
-  /** @type {Hazard[]} */
-  let hazards = [];
-  let lastTs = 0;
-  let animId = 0;
-  let deathTimer = 0;
-  let hopCooldown = 0;
+  // Smoothed gravity direction in screen space (points "down")
+  let gx = 0;
+  let gy = 1;
+  let targetGx = 0;
+  let targetGy = 1;
 
-  function currentDiff() {
-    return DIFFICULTIES[difficulty];
+  // Liquid fill 0–1 of glass height
+  const FILL = 0.62;
+  let wavePhase = 0;
+  let splash = 0;
+
+  /** @type {{x:number,y:number,r:number,vx:number,vy:number,life:number}[]} */
+  let bubbles = [];
+
+  let motionLive = false;
+  let lastTs = performance.now();
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  /**
-   * @typedef {{
-   *   x: number, y: number, w: number, h: number,
-   *   speed: number, kind: "car" | "log" | "turtle",
-   *   color: string, dive?: number, submerged?: boolean
-   * }} Hazard
-   */
-
-  function createFrog() {
-    return {
-      col: 6,
-      row: 12,
-      x: 6 * TILE + 3,
-      y: 12 * TILE + 3,
-      w: TILE - 6,
-      h: TILE - 6,
-      onLog: /** @type {Hazard | null} */ (null),
-      facing: "up",
-    };
+  function glassGeometry() {
+    const top = height * 0.08;
+    const bottom = height * 0.92;
+    const midY = (top + bottom) / 2;
+    const topW = Math.min(width * 0.78, 420);
+    const botW = Math.min(width * 0.52, 280);
+    const cx = width / 2;
+    return { top, bottom, midY, topW, botW, cx, h: bottom - top };
   }
 
-  function laneY(row) {
-    return row * TILE;
+  function widthAtY(y, g) {
+    const t = (y - g.top) / g.h;
+    const w = g.topW + (g.botW - g.topW) * t * t;
+    return w;
   }
 
-  function buildHazards() {
-    const diff = currentDiff();
-    const speedBoost = (1 + (level - 1) * diff.levelRamp) * diff.speed;
-    const gapBoost = diff.gap;
-    /** @type {Hazard[]} */
-    const list = [];
-
-    // Road lanes (hardest uses all 5; easier drops lower-traffic lanes first)
-    const allRoad = [
-      { row: 11, speed: 55, w: 48, gap: 110, color: "#d64545", dir: 1 },
-      { row: 10, speed: -70, w: 56, gap: 130, color: "#c0c4c8", dir: -1 },
-      { row: 9, speed: 85, w: 40, gap: 100, color: "#4aa3ff", dir: 1 },
-      { row: 8, speed: -60, w: 70, gap: 150, color: "#f0a020", dir: -1 },
-      { row: 7, speed: 48, w: 52, gap: 125, color: "#2aa5a5", dir: 1 },
-    ];
-    const road = allRoad.slice(0, diff.roadLanes).map((lane) => ({
-      ...lane,
-      speed: lane.speed * speedBoost,
-      gap: lane.gap * gapBoost,
-    }));
-
-    for (const lane of road) {
-      const count = Math.ceil((WIDTH + lane.gap) / lane.gap);
-      for (let i = 0; i < count; i++) {
-        list.push({
-          x: i * lane.gap + (lane.dir > 0 ? -lane.w : WIDTH),
-          y: laneY(lane.row) + 4,
-          w: lane.w,
-          h: TILE - 8,
-          speed: lane.speed,
-          kind: "car",
-          color: lane.color,
-        });
-      }
-    }
-
-    // River: logs & turtles
-    const river = [
-      { row: 5, speed: 40 * speedBoost, w: 90, gap: 140 * gapBoost, kind: "log", color: "#8b5a2b" },
-      { row: 4, speed: -50 * speedBoost, w: 70, gap: 120 * gapBoost, kind: "turtle", color: "#3d8b6e" },
-      { row: 3, speed: 55 * speedBoost, w: 110, gap: 170 * gapBoost, kind: "log", color: "#a06a35" },
-      { row: 2, speed: -45 * speedBoost, w: 80, gap: 130 * gapBoost, kind: "turtle", color: "#2f7a5c" },
-      { row: 1, speed: 35 * speedBoost, w: 100, gap: 160 * gapBoost, kind: "log", color: "#7a4a22" },
-    ];
-
-    for (const lane of river) {
-      const count = Math.ceil((WIDTH + lane.gap) / lane.gap) + 1;
-      for (let i = 0; i < count; i++) {
-        /** @type {Hazard} */
-        const h = {
-          x: i * lane.gap,
-          y: laneY(lane.row) + 5,
-          w: lane.w,
-          h: TILE - 10,
-          speed: lane.speed,
-          kind: /** @type {"log" | "turtle"} */ (lane.kind),
-          color: lane.color,
-        };
-        if (lane.kind === "turtle" && diff.dive) {
-          h.dive = i * 1.4;
-          h.submerged = false;
-        }
-        list.push(h);
-      }
-    }
-
-    return list;
-  }
-
-  function resetFrog() {
-    frog = createFrog();
-    hopCooldown = 0.12;
-  }
-
-  function startGame(full = true) {
-    if (full) {
-      score = 0;
-      lives = currentDiff().lives;
-      level = 1;
-      homes = [false, false, false, false, false];
-    }
-    hazards = buildHazards();
-    resetFrog();
-    state = "playing";
-    overlay.hidden = true;
-    syncHud();
-    lastTs = performance.now();
-    cancelAnimationFrame(animId);
-    animId = requestAnimationFrame(loop);
-  }
-
-  function syncHud() {
-    scoreEl.textContent = String(score);
-    livesEl.textContent = String(lives);
-    levelEl.textContent = String(level);
-    diffLabelEl.textContent = currentDiff().name;
-  }
-
-  function showOverlay(title, copy, btnLabel) {
-    overlayTitle.textContent = title;
-    overlayCopy.textContent = copy;
-    startBtn.textContent = btnLabel;
-    overlay.hidden = false;
-    document.querySelector(".diff-picker").hidden = false;
-  }
-
-  function setDifficulty(value) {
-    const next = Number(value);
-    if (![1, 2, 3, 4, 5].includes(next)) return;
-    difficulty = /** @type {1 | 2 | 3 | 4 | 5} */ (next);
-    diffButtons.forEach((btn) => {
-      btn.classList.toggle("is-active", Number(btn.dataset.diff) === difficulty);
-    });
-    syncHud();
-  }
-
-  function moveFrog(dir) {
-    if (state !== "playing" || hopCooldown > 0) return;
-
-    const next = { col: frog.col, row: frog.row };
-    if (dir === "up") next.row -= 1;
-    if (dir === "down") next.row += 1;
-    if (dir === "left") next.col -= 1;
-    if (dir === "right") next.col += 1;
-
-    if (next.col < 0 || next.col >= COLS || next.row < 0 || next.row >= ROWS) return;
-    if (next.row === 0) {
-      tryHome(next.col);
-      return;
-    }
-
-    frog.col = next.col;
-    frog.row = next.row;
-    frog.x = frog.col * TILE + 3;
-    frog.y = frog.row * TILE + 3;
-    frog.facing = dir;
-    frog.onLog = null;
-    hopCooldown = 0.1;
-
-    if (dir === "up") {
-      score += 10;
-      syncHud();
+  function clampGravity() {
+    const len = Math.hypot(targetGx, targetGy) || 1;
+    targetGx /= len;
+    targetGy /= len;
+    // Keep some downward bias so liquid doesn't stick to ceiling forever
+    if (targetGy < 0.15) {
+      targetGy = 0.15 + targetGy * 0.5;
+      const n = Math.hypot(targetGx, targetGy) || 1;
+      targetGx /= n;
+      targetGy /= n;
     }
   }
 
-  function tryHome(col) {
-    // Five home pads spanning two columns each
-    const pads = [
-      { cols: [0, 1], index: 0 },
-      { cols: [3, 4], index: 1 },
-      { cols: [6, 7], index: 2 },
-      { cols: [9, 10], index: 3 },
-      { cols: [11, 12], index: 4 },
-    ];
-    const pad = pads.find((p) => p.cols.includes(col));
-    if (!pad || homes[pad.index]) {
-      die();
-      return;
-    }
-    homes[pad.index] = true;
-    score += 200;
-    syncHud();
-    if (homes.every(Boolean)) {
-      levelComplete();
-      return;
-    }
-    resetFrog();
+  function onOrientation(e) {
+    // beta: front-back (-180..180), gamma: left-right (-90..90)
+    const beta = e.beta ?? 0;
+    const gamma = e.gamma ?? 0;
+    // Map tilt to gravity vector
+    const radB = (beta * Math.PI) / 180;
+    const radG = (gamma * Math.PI) / 180;
+    targetGx = Math.sin(radG);
+    targetGy = Math.cos(radG) * Math.cos(radB);
+    if (targetGy < 0.05) targetGy = 0.05;
+    clampGravity();
+    motionLive = true;
+    statusEl.textContent = "Liquid follows your tilt";
   }
 
-  function levelComplete() {
-    score += 500 + lives * 50;
-    level += 1;
-    homes = [false, false, false, false, false];
-    hazards = buildHazards();
-    resetFrog();
-    syncHud();
+  function onMotion(e) {
+    const a = e.accelerationIncludingGravity;
+    if (!a || a.x == null) return;
+    // Device coords vary; invert x for natural pour
+    targetGx = -(a.x || 0) / 9.8;
+    targetGy = (a.y || 0) / 9.8;
+    if (Math.abs(targetGy) < 0.05 && Math.abs(targetGx) < 0.05) {
+      targetGy = 1;
+      targetGx = 0;
+    }
+    clampGravity();
+    motionLive = true;
+    statusEl.textContent = "Liquid follows your motion";
   }
 
-  function die() {
-    lives -= 1;
-    syncHud();
-    if (lives <= 0) {
-      state = "over";
-      showOverlay("Game Over", `Final score ${score}. Try again?`, "Play again");
-      return;
-    }
-    state = "dead";
-    deathTimer = 0.7;
+  function onPointer(e) {
+    if (motionLive) return;
+    const x = (e.clientX ?? e.touches?.[0]?.clientX ?? width / 2) / width;
+    const y = (e.clientY ?? e.touches?.[0]?.clientY ?? height / 2) / height;
+    targetGx = (x - 0.5) * 1.6;
+    targetGy = 0.55 + y * 0.55;
+    clampGravity();
+    splash = Math.min(1, splash + 0.08);
+    statusEl.textContent = "Drag to tip the glass · enable motion on phone";
   }
 
-  function rectsOverlap(a, b) {
-    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-  }
-
-  function update(dt) {
-    if (state === "dead") {
-      deathTimer -= dt;
-      if (deathTimer <= 0) {
-        resetFrog();
-        state = "playing";
-      }
-      return;
-    }
-    if (state !== "playing") return;
-
-    hopCooldown = Math.max(0, hopCooldown - dt);
-
-    for (const h of hazards) {
-      h.x += h.speed * dt;
-      if (h.speed > 0 && h.x > WIDTH + 20) h.x = -h.w - 20;
-      if (h.speed < 0 && h.x + h.w < -20) h.x = WIDTH + 20;
-
-      if (h.kind === "turtle" && h.dive !== undefined) {
-        h.dive += dt;
-        const diff = currentDiff();
-        const surface = diff.diveSurface ?? 3.6;
-        const under = diff.diveUnder ?? 1.2;
-        const cycleLen = surface + under;
-        const cycle = h.dive % cycleLen;
-        h.submerged = cycle > surface;
-      }
-    }
-
-    // Road collision
-    if (frog.row >= 7 && frog.row <= 11) {
-      for (const h of hazards) {
-        if (h.kind !== "car") continue;
-        if (rectsOverlap(frog, h)) {
-          die();
+  async function enableMotion() {
+    try {
+      const DOE = window.DeviceOrientationEvent;
+      if (DOE && typeof DOE.requestPermission === "function") {
+        const res = await DOE.requestPermission();
+        if (res !== "granted") {
+          statusEl.textContent = "Motion blocked — drag to tip instead";
+          enableBtn.hidden = true;
           return;
         }
       }
-    }
-
-    // River logic
-    if (frog.row >= 1 && frog.row <= 5) {
-      let riding = /** @type {Hazard | null} */ (null);
-      for (const h of hazards) {
-        if (h.kind === "car") continue;
-        if (h.submerged) continue;
-        if (rectsOverlap(frog, h)) {
-          riding = h;
-          break;
-        }
-      }
-      if (!riding) {
-        die();
-        return;
-      }
-      frog.onLog = riding;
-      frog.x += riding.speed * dt;
-      frog.col = Math.floor((frog.x + frog.w / 2) / TILE);
-      if (frog.x < -2 || frog.x + frog.w > WIDTH + 2) {
-        die();
-        return;
-      }
-    } else {
-      frog.onLog = null;
-      frog.x = frog.col * TILE + 3;
-      frog.y = frog.row * TILE + 3;
+      window.addEventListener("deviceorientation", onOrientation, true);
+      window.addEventListener("devicemotion", onMotion, true);
+      enableBtn.hidden = true;
+      statusEl.textContent = "Tilt your phone — pour away";
+    } catch {
+      statusEl.textContent = "Motion unavailable — drag to tip the glass";
+      enableBtn.hidden = true;
     }
   }
 
-  function drawBackground() {
-    // Home bank
-    ctx.fillStyle = "#1e4d2b";
-    ctx.fillRect(0, 0, WIDTH, TILE);
+  function spawnBubbles(g, surfaceY, count) {
+    for (let i = 0; i < count; i++) {
+      const y = g.top + g.h * (0.35 + Math.random() * 0.55);
+      const half = widthAtY(y, g) / 2 - 12;
+      bubbles.push({
+        x: g.cx + (Math.random() - 0.5) * half * 1.4,
+        y,
+        r: 1.5 + Math.random() * 4,
+        vx: (Math.random() - 0.5) * 10,
+        vy: -12 - Math.random() * 28,
+        life: 2 + Math.random() * 3,
+      });
+    }
+  }
 
-    // Water
-    ctx.fillStyle = "#155a82";
-    ctx.fillRect(0, TILE, WIDTH, TILE * 5);
-    ctx.fillStyle = "rgba(255,255,255,0.05)";
-    for (let i = 0; i < 8; i++) {
-      ctx.fillRect(i * 55 + 10, TILE * 2 + 8, 30, 2);
-      ctx.fillRect(i * 50 + 20, TILE * 4 + 14, 24, 2);
+  function update(dt) {
+    // Smooth gravity
+    gx += (targetGx - gx) * Math.min(1, dt * 6);
+    gy += (targetGy - gy) * Math.min(1, dt * 6);
+    const glen = Math.hypot(gx, gy) || 1;
+    gx /= glen;
+    gy /= glen;
+
+    const tilt = Math.hypot(gx, gy - 1);
+    wavePhase += dt * (1.8 + tilt * 8);
+    splash = Math.max(0, splash - dt * 0.55);
+    splash = Math.min(1, splash + tilt * dt * 0.9);
+
+    const g = glassGeometry();
+    if (Math.random() < dt * (1.2 + splash * 4)) {
+      spawnBubbles(g, 0, 1);
     }
 
-    // Median
-    ctx.fillStyle = "#3a6e2f";
-    ctx.fillRect(0, TILE * 6, WIDTH, TILE);
+    // Liquid surface plane: points with normal = gravity
+    // Surface passes through fill center of glass
+    const fillCenterY = g.bottom - g.h * FILL * 0.5;
 
-    // Road
-    ctx.fillStyle = "#2c3036";
-    ctx.fillRect(0, TILE * 7, WIDTH, TILE * 5);
-    ctx.strokeStyle = "rgba(255,255,255,0.25)";
-    ctx.setLineDash([8, 10]);
-    ctx.lineWidth = 2;
-    for (let r = 8; r <= 11; r++) {
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+      const b = bubbles[i];
+      b.life -= dt;
+      b.vx += -gx * 40 * dt;
+      b.vy += -gy * 60 * dt;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      // Rise relative to gravity (against down)
+      b.x -= gx * 18 * dt;
+      b.y -= gy * 28 * dt;
+
+      const half = widthAtY(Math.min(Math.max(b.y, g.top), g.bottom), g) / 2 - 4;
+      if (b.x < g.cx - half || b.x > g.cx + half || b.life <= 0 || b.y < g.top) {
+        bubbles.splice(i, 1);
+      }
+    }
+
+    void fillCenterY;
+  }
+
+  function drawGlassShell(g) {
+    // Table / room backdrop
+    const bg = ctx.createLinearGradient(0, 0, 0, height);
+    bg.addColorStop(0, "#1a1510");
+    bg.addColorStop(0.45, "#2a2118");
+    bg.addColorStop(1, "#0c0a08");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, width, height);
+
+    // Soft vignette light
+    const light = ctx.createRadialGradient(
+      width * 0.35,
+      height * 0.2,
+      20,
+      width * 0.5,
+      height * 0.45,
+      height * 0.75
+    );
+    light.addColorStop(0, "rgba(255,220,160,0.14)");
+    light.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = light;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  function clipGlass(g) {
+    ctx.beginPath();
+    const steps = 28;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const y = g.top + g.h * t;
+      const half = widthAtY(y, g) / 2;
+      const x = g.cx - half;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    for (let i = steps; i >= 0; i--) {
+      const t = i / steps;
+      const y = g.top + g.h * t;
+      const half = widthAtY(y, g) / 2;
+      ctx.lineTo(g.cx + half, y);
+    }
+    ctx.closePath();
+  }
+
+  function surfaceYAtX(x, g) {
+    // Plane: (p - center) · gravity = offset for fill amount
+    // center of mass-ish at fill height along glass axis when upright
+    const uprightSurface = g.bottom - g.h * FILL;
+    // Point on plane: uprightSurface along glass center, then tilt
+    const cx = g.cx;
+    const cy = uprightSurface;
+    // For point (x,y) on plane: (x-cx)*gx + (y-cy)*gy = 0 => y = cy - (x-cx)*gx/gy
+    const denom = Math.max(0.2, gy);
+    let y = cy - ((x - cx) * gx) / denom;
+    // Wave along surface tangent
+    const tangentX = gy;
+    const along = (x - cx) * tangentX;
+    y += Math.sin(wavePhase + along * 0.045) * (5 + splash * 14);
+    y += Math.sin(wavePhase * 1.7 + along * 0.02) * (2 + splash * 6);
+    return y;
+  }
+
+  function drawLiquid(g) {
+    ctx.save();
+    clipGlass(g);
+    ctx.clip();
+
+    // Sample surface across glass
+    const samples = [];
+    const steps = 48;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      // x across max top width then clamp to local
+      const x = g.cx - g.topW / 2 + t * g.topW;
+      const y = surfaceYAtX(x, g);
+      samples.push({ x, y });
+    }
+
+    // Liquid body path: surface then bottom corners
+    ctx.beginPath();
+    ctx.moveTo(samples[0].x, samples[0].y);
+    for (let i = 1; i < samples.length; i++) {
+      ctx.lineTo(samples[i].x, samples[i].y);
+    }
+    // Down right side of glass to bottom, across, up left
+    const botHalf = g.botW / 2;
+    ctx.lineTo(g.cx + botHalf, g.bottom);
+    ctx.lineTo(g.cx - botHalf, g.bottom);
+    ctx.closePath();
+
+    const lg = ctx.createLinearGradient(
+      g.cx - gx * 200,
+      g.cy - gy * 200,
+      g.cx + gx * 220,
+      g.bottom
+    );
+    // fix g.cy
+    const mid = (g.top + g.bottom) / 2;
+    const grad = ctx.createLinearGradient(
+      g.cx - gx * height * 0.25,
+      mid - gy * height * 0.25,
+      g.cx + gx * height * 0.2,
+      mid + gy * height * 0.35
+    );
+    grad.addColorStop(0, "rgba(232, 170, 90, 0.92)");
+    grad.addColorStop(0.45, "rgba(196, 122, 44, 0.94)");
+    grad.addColorStop(1, "rgba(120, 58, 18, 0.96)");
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Meniscus highlight on surface
+    ctx.beginPath();
+    ctx.moveTo(samples[0].x, samples[0].y);
+    for (let i = 1; i < samples.length; i++) {
+      ctx.lineTo(samples[i].x, samples[i].y);
+    }
+    ctx.strokeStyle = "rgba(255, 236, 200, 0.55)";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Inner caustic streaks
+    ctx.globalAlpha = 0.12;
+    for (let i = 0; i < 5; i++) {
+      const px = g.cx + Math.sin(wavePhase * 0.4 + i) * 40 - gx * 30;
+      const py = mid + 40 + i * 28;
+      const streak = ctx.createLinearGradient(px, py, px + 30, py + 80);
+      streak.addColorStop(0, "rgba(255,230,170,0.8)");
+      streak.addColorStop(1, "rgba(255,230,170,0)");
+      ctx.fillStyle = streak;
+      ctx.fillRect(px, py, 18, 90);
+    }
+    ctx.globalAlpha = 1;
+
+    // Bubbles
+    for (const b of bubbles) {
       ctx.beginPath();
-      ctx.moveTo(0, r * TILE);
-      ctx.lineTo(WIDTH, r * TILE);
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,245,220,0.35)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.45)";
+      ctx.lineWidth = 1;
       ctx.stroke();
     }
-    ctx.setLineDash([]);
 
-    // Start grass
-    ctx.fillStyle = "#2f6b3a";
-    ctx.fillRect(0, TILE * 12, WIDTH, TILE);
-
-    // Home alcoves
-    const padStarts = [0, 3, 6, 9, 11];
-    padStarts.forEach((c, i) => {
-      const x = c * TILE;
-      const w = (i === 4 ? 2 : 2) * TILE;
-      ctx.fillStyle = homes[i] ? "#4caf50" : "#0d3a55";
-      ctx.fillRect(x + 4, 4, w - 8, TILE - 8);
-      if (homes[i]) {
-        drawFrogIcon(x + w / 2 - 10, 8, 20, "up", "#9dff9a");
-      } else {
-        ctx.fillStyle = "rgba(255,255,255,0.15)";
-        ctx.beginPath();
-        ctx.arc(x + w / 2, TILE / 2, 5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    });
-
-    // Grass posts between home pads
-    ctx.fillStyle = "#1a3d24";
-    [2, 5, 8].forEach((c) => {
-      ctx.fillRect(c * TILE, 0, TILE, TILE);
-    });
-  }
-
-  function drawHazards() {
-    for (const h of hazards) {
-      if (h.kind === "car") {
-        roundRect(h.x, h.y, h.w, h.h, 4, h.color);
-        ctx.fillStyle = "rgba(255,255,255,0.35)";
-        ctx.fillRect(h.x + 6, h.y + 4, h.w - 12, 5);
-        ctx.fillStyle = "#222";
-        ctx.fillRect(h.x + 4, h.y + h.h - 5, 8, 4);
-        ctx.fillRect(h.x + h.w - 12, h.y + h.h - 5, 8, 4);
-      } else if (h.kind === "log") {
-        roundRect(h.x, h.y, h.w, h.h, 6, h.color);
-        ctx.strokeStyle = "rgba(0,0,0,0.25)";
-        ctx.beginPath();
-        ctx.moveTo(h.x + 12, h.y + 3);
-        ctx.lineTo(h.x + 12, h.y + h.h - 3);
-        ctx.moveTo(h.x + h.w - 12, h.y + 3);
-        ctx.lineTo(h.x + h.w - 12, h.y + h.h - 3);
-        ctx.stroke();
-      } else {
-        if (h.submerged) {
-          ctx.fillStyle = "rgba(255,255,255,0.12)";
-          ctx.beginPath();
-          ctx.ellipse(h.x + h.w / 2, h.y + h.h / 2, h.w / 2.4, 3, 0, 0, Math.PI * 2);
-          ctx.fill();
-          continue;
-        }
-        const shells = Math.max(2, Math.floor(h.w / 28));
-        for (let i = 0; i < shells; i++) {
-          const cx = h.x + 16 + i * 28;
-          ctx.fillStyle = h.color;
-          ctx.beginPath();
-          ctx.ellipse(cx, h.y + h.h / 2, 12, h.h / 2 - 1, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = "#245a42";
-          ctx.beginPath();
-          ctx.arc(cx, h.y + h.h / 2, 4, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    }
-  }
-
-  function drawFrogIcon(x, y, size, facing, color) {
-    ctx.save();
-    ctx.translate(x + size / 2, y + size / 2);
-    const rot = { up: 0, right: Math.PI / 2, down: Math.PI, left: -Math.PI / 2 }[facing] || 0;
-    ctx.rotate(rot);
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, size * 0.38, size * 0.42, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(-size * 0.18, -size * 0.28, size * 0.14, 0, Math.PI * 2);
-    ctx.arc(size * 0.18, -size * 0.28, size * 0.14, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#102418";
-    ctx.beginPath();
-    ctx.arc(-size * 0.18, -size * 0.3, size * 0.05, 0, Math.PI * 2);
-    ctx.arc(size * 0.18, -size * 0.3, size * 0.05, 0, Math.PI * 2);
-    ctx.fill();
     ctx.restore();
+    void liquidColor;
   }
 
-  function roundRect(x, y, w, h, r, color) {
-    ctx.fillStyle = color;
+  function drawGlassRim(g) {
+    // Glass wall (stroke)
+    ctx.save();
+    clipGlass(g);
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = "rgba(255,255,255,0.14)";
+    ctx.stroke();
+    ctx.restore();
+
+    // Outer silhouette
+    ctx.save();
+    clipGlass(g);
+    ctx.strokeStyle = "rgba(255,255,255,0.28)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+
+    // Specular rim left
     ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
+    for (let i = 0; i <= 24; i++) {
+      const t = i / 24;
+      const y = g.top + g.h * t;
+      const half = widthAtY(y, g) / 2;
+      const x = g.cx - half + 6;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = "rgba(255,255,255,0.38)";
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.stroke();
+
+    // Specular rim right (thinner)
+    ctx.beginPath();
+    for (let i = 0; i <= 24; i++) {
+      const t = i / 24;
+      const y = g.top + g.h * t;
+      const half = widthAtY(y, g) / 2;
+      const x = g.cx + half - 5;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = "rgba(255,255,255,0.16)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Top ellipse rim
+    ctx.beginPath();
+    ctx.ellipse(g.cx, g.top + 4, g.topW / 2, 10, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255,255,255,0.45)";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
     ctx.fill();
+
+    // Base
+    ctx.beginPath();
+    ctx.ellipse(g.cx, g.bottom + 2, g.botW / 2 + 8, 8, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(g.cx, g.bottom, g.botW / 2 + 2, 5, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255,255,255,0.25)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
   }
 
   function draw() {
-    ctx.clearRect(0, 0, WIDTH, HEIGHT);
-    drawBackground();
-    drawHazards();
-    if (state !== "dead" || Math.floor(deathTimer * 12) % 2 === 0) {
-      const color = state === "dead" ? "#d64545" : "#7CFF6B";
-      drawFrogIcon(frog.x, frog.y, frog.w, frog.facing, color);
-    }
+    const g = glassGeometry();
+    drawGlassShell(g);
+    drawLiquid(g);
+    drawGlassRim(g);
   }
 
   function loop(ts) {
@@ -532,62 +411,39 @@
     lastTs = ts;
     update(dt);
     draw();
-    if (state !== "over" && state !== "title") {
-      animId = requestAnimationFrame(loop);
-    } else {
-      draw();
-    }
+    requestAnimationFrame(loop);
   }
 
-  // Input
-  const keyMap = {
-    ArrowUp: "up",
-    ArrowDown: "down",
-    ArrowLeft: "left",
-    ArrowRight: "right",
-    w: "up",
-    W: "up",
-    s: "down",
-    S: "down",
-    a: "left",
-    A: "left",
-    d: "right",
-    D: "right",
-  };
+  function needsPermissionGate() {
+    const DOE = window.DeviceOrientationEvent;
+    return Boolean(DOE && typeof DOE.requestPermission === "function");
+  }
 
-  window.addEventListener("keydown", (e) => {
-    const dir = keyMap[e.key];
-    if (!dir) return;
-    e.preventDefault();
-    if (state === "title" || state === "over") {
-      startGame(true);
-      return;
-    }
-    moveFrog(dir);
+  resize();
+  window.addEventListener("resize", resize);
+  window.addEventListener("pointerdown", onPointer);
+  window.addEventListener("pointermove", (e) => {
+    if (e.buttons || e.pressure > 0) onPointer(e);
   });
+  window.addEventListener("touchmove", onPointer, { passive: false });
 
-  document.querySelectorAll(".pad").forEach((btn) => {
-    const fire = (e) => {
-      e.preventDefault();
-      const dir = btn.getAttribute("data-dir");
-      if (!dir) return;
-      if (state === "title" || state === "over") {
-        startGame(true);
-        return;
-      }
-      moveFrog(dir);
-    };
-    btn.addEventListener("pointerdown", fire);
-  });
+  if (needsPermissionGate()) {
+    enableBtn.hidden = false;
+    statusEl.textContent = "Tap Enable motion, then tilt the phone";
+    enableBtn.addEventListener("click", enableMotion);
+  } else {
+    window.addEventListener("deviceorientation", onOrientation, true);
+    window.addEventListener("devicemotion", onMotion, true);
+    statusEl.textContent = "Tilt your phone · drag if on desktop";
+  }
 
-  startBtn.addEventListener("click", () => startGame(true));
+  // Idle sway so it feels alive before input
+  setInterval(() => {
+    if (motionLive) return;
+    targetGx = Math.sin(performance.now() / 1400) * 0.12;
+    targetGy = 1;
+    clampGravity();
+  }, 32);
 
-  // Initial draw
-  hazards = buildHazards();
-  draw();
-  showOverlay(
-    "Frogger",
-    "Hop across traffic and ride logs home. Fill all five pads.",
-    "Start"
-  );
+  requestAnimationFrame(loop);
 })();
