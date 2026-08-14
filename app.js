@@ -3,24 +3,18 @@
   const DEFAULTS = { symbol: "SNAP", shares: 130000, target: 2000000 };
 
   const els = {
-    symbol: document.getElementById("symbol"),
-    company: document.getElementById("company"),
+    fill: document.getElementById("fill"),
     value: document.getElementById("value"),
-    change: document.getElementById("change"),
-    asof: document.getElementById("asof"),
-    progressLabel: document.getElementById("progress-label"),
-    progressPct: document.getElementById("progress-pct"),
-    progressTarget: document.getElementById("progress-target"),
-    remain: document.getElementById("remain"),
-    bar: document.getElementById("bar"),
-    barFill: document.getElementById("bar-fill"),
+    pct: document.getElementById("pct"),
+    gear: document.getElementById("gear"),
+    scrim: document.getElementById("scrim"),
+    panel: document.getElementById("panel"),
+    symbol: document.getElementById("symbol"),
     shares: document.getElementById("shares"),
     target: document.getElementById("target"),
-    note: document.getElementById("note"),
-    refresh: document.getElementById("refresh"),
   };
 
-  /** @type {{price:number|null, prev:number|null, change:number|null, changePct:number|null, exchange:string, time:Date, name:string}|null} */
+  /** @type {{price:number|null}|null} */
   let quote = null;
 
   function loadSettings() {
@@ -38,25 +32,36 @@
     }
   }
 
-  function settings() {
-    const symbol = (els.symbol.value || DEFAULTS.symbol).trim().toUpperCase() || DEFAULTS.symbol;
-    const shares = Math.max(0, Number(els.shares.value) || 0);
-    const target = Math.max(1, Number(els.target.value) || DEFAULTS.target);
-    return { symbol, shares, target };
+  function readForm() {
+    return {
+      symbol: (els.symbol.value || DEFAULTS.symbol).trim().toUpperCase() || DEFAULTS.symbol,
+      shares: Math.max(0, Number(els.shares.value) || 0),
+      target: Math.max(1, Number(els.target.value) || DEFAULTS.target),
+    };
   }
 
-  function persist() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings()));
+  function persist(cfg) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
   }
 
-  function money(n, digits = 2) {
+  function compactMoney(n) {
     if (n == null || Number.isNaN(n)) return "—";
+    const abs = Math.abs(n);
+    const sign = n < 0 ? "−" : "";
+    if (abs >= 1e6) {
+      const m = abs / 1e6;
+      const digits = m >= 10 ? 1 : 2;
+      return sign + "$" + m.toFixed(digits).replace(/\.0$/, "") + "M";
+    }
+    if (abs >= 1e3) {
+      const k = abs / 1e3;
+      const digits = k >= 100 ? 0 : k >= 10 ? 1 : 1;
+      return sign + "$" + k.toFixed(digits).replace(/\.0$/, "") + "K";
+    }
     return (
+      sign +
       "$" +
-      Number(n).toLocaleString("en-US", {
-        minimumFractionDigits: digits,
-        maximumFractionDigits: digits,
-      })
+      Math.round(abs).toLocaleString("en-US")
     );
   }
 
@@ -108,101 +113,57 @@
     const quoteData = result.indicators?.quote?.[0] || {};
     const closes = (quoteData.close || []).filter((v) => v != null);
     const price = meta.regularMarketPrice ?? closes[closes.length - 1];
-    const prev = meta.chartPreviousClose ?? meta.previousClose;
-    const change = price != null && prev != null ? price - prev : null;
-    const changePct = change != null && prev ? (change / prev) * 100 : null;
-
-    return {
-      symbol: meta.symbol,
-      name: meta.shortName || meta.longName || meta.symbol,
-      exchange: meta.fullExchangeName || meta.exchangeName || "",
-      price,
-      prev,
-      change,
-      changePct,
-      time: meta.regularMarketTime
-        ? new Date(meta.regularMarketTime * 1000)
-        : new Date(),
-    };
+    return { symbol: meta.symbol, price };
   }
 
   function render() {
-    const { shares, target, symbol } = settings();
+    const { shares, target } = loadSettings();
     const price = quote?.price ?? null;
     const value = price != null ? price * shares : null;
     const pct = value != null && target > 0 ? Math.min(100, (value / target) * 100) : 0;
-    const remaining = value != null ? Math.max(0, target - value) : null;
 
-    els.value.textContent = money(value, 0);
-    els.progressLabel.textContent = money(value, 0);
-    els.progressTarget.textContent = money(target, 0);
-    els.progressPct.textContent = pct.toFixed(1) + "%";
-    els.barFill.style.width = pct + "%";
-    els.barFill.classList.toggle("is-done", pct >= 100);
-    els.bar.setAttribute("aria-valuemax", String(target));
-    els.bar.setAttribute("aria-valuenow", String(Math.round(value || 0)));
-
-    if (remaining == null) {
-      els.remain.textContent = "Toward " + money(target, 0);
-    } else if (remaining <= 0) {
-      els.remain.textContent = "Target reached";
-    } else {
-      els.remain.textContent = money(remaining, 0) + " to go";
-    }
-
-    if (!quote) return;
-
-    els.company.textContent = (quote.name || symbol) + (quote.exchange ? " · " + quote.exchange : "");
-
-    const up = (quote.change ?? 0) > 0;
-    const down = (quote.change ?? 0) < 0;
-    const sign = up ? "+" : down ? "−" : "";
-    const dayValue = quote.change != null ? quote.change * shares : null;
-    els.change.textContent =
-      quote.price == null
-        ? "—"
-        : money(quote.price) +
-          " / share" +
-          (quote.change == null
-            ? ""
-            : " · " +
-              sign +
-              money(Math.abs(dayValue), 0).replace("$", "") +
-              " today (" +
-              sign +
-              Math.abs(quote.changePct).toFixed(2) +
-              "%)");
-    els.change.className = "change " + (up ? "is-up" : down ? "is-down" : "is-flat");
-
-    els.asof.textContent =
-      shares.toLocaleString("en-US") +
-      " shares · as of " +
-      quote.time.toLocaleString(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      });
-
-    els.note.textContent = symbol + " · delayed quote · auto-refresh 60s";
+    els.value.textContent = compactMoney(value);
+    els.pct.textContent = value == null ? "" : Math.round(pct) + "%";
+    els.fill.style.height = pct + "%";
+    els.fill.classList.toggle("is-done", pct >= 100);
+    document.title = compactMoney(value);
   }
 
   async function refresh() {
-    const { symbol } = settings();
-    els.refresh.disabled = true;
-    els.change.textContent = "Fetching " + symbol + "…";
-    els.change.className = "change is-flat";
+    const { symbol } = loadSettings();
     try {
       quote = parseQuote(await loadYahoo(symbol));
-      els.symbol.value = quote.symbol || symbol;
-      persist();
+      if (quote.symbol) {
+        const cfg = loadSettings();
+        cfg.symbol = quote.symbol;
+        persist(cfg);
+        els.symbol.value = quote.symbol;
+      }
       render();
     } catch (err) {
-      els.change.textContent = "Could not load quote";
-      els.change.className = "change is-down";
-      els.note.textContent = String(err.message || err);
+      els.pct.textContent = "quote failed";
       console.error(err);
-    } finally {
-      els.refresh.disabled = false;
     }
+  }
+
+  function openSettings() {
+    const cfg = loadSettings();
+    els.symbol.value = cfg.symbol;
+    els.shares.value = String(cfg.shares);
+    els.target.value = String(cfg.target);
+    els.scrim.hidden = false;
+    els.symbol.focus();
+  }
+
+  function closeSettings(save) {
+    if (save) {
+      const next = readForm();
+      const prev = loadSettings();
+      persist(next);
+      if (next.symbol !== prev.symbol) refresh();
+      else render();
+    }
+    els.scrim.hidden = true;
   }
 
   const saved = loadSettings();
@@ -211,27 +172,18 @@
   els.target.value = String(saved.target);
   render();
 
-  els.shares.addEventListener("input", () => {
-    persist();
-    render();
+  els.gear.addEventListener("click", openSettings);
+  els.scrim.addEventListener("click", (e) => {
+    if (e.target === els.scrim) closeSettings(true);
   });
-  els.target.addEventListener("input", () => {
-    persist();
-    render();
+  els.panel.addEventListener("submit", (e) => {
+    e.preventDefault();
+    closeSettings(true);
   });
-  els.symbol.addEventListener("change", () => {
-    els.symbol.value = els.symbol.value.trim().toUpperCase();
-    persist();
-    refresh();
-  });
-  els.symbol.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      els.symbol.blur();
-    }
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !els.scrim.hidden) closeSettings(true);
   });
 
-  els.refresh.addEventListener("click", refresh);
   refresh();
   setInterval(refresh, 60_000);
 })();
