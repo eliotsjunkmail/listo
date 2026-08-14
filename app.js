@@ -162,7 +162,7 @@
     els.pct.textContent = value == null ? "" : Math.round(pct) + "%";
 
     if (!quote || quote.price == null) {
-      els.story.textContent = "Fetching " + symbol + "…";
+      els.story.textContent = "";
     } else {
       const direction =
         (quote.change ?? 0) > 0.004 ? "up" : (quote.change ?? 0) < -0.004 ? "down" : "unchanged";

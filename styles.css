@@ -69,8 +69,19 @@ body {
   min-height: 100%;
   display: grid;
   place-content: center;
+  justify-items: center;
   text-align: center;
-  padding: 2rem 1.25rem 8rem;
+  padding: 2rem 1.5rem 6.5rem;
+}
+
+.figures {
+  display: grid;
+  justify-items: center;
+  width: min(22rem, 100%);
+}
+
+.figures .value,
+.figures .pct {
   mix-blend-mode: difference;
 }
 
@@ -91,18 +102,36 @@ body {
 }
 
 .story {
-  position: fixed;
-  left: max(1.1rem, env(safe-area-inset-left));
-  right: 6.5rem;
-  bottom: max(1.15rem, env(safe-area-inset-bottom));
-  z-index: 2;
-  margin: 0;
-  max-width: 22rem;
-  font-size: 0.86rem;
+  margin: 1.1rem 0 0;
+  font-size: 0.9rem;
   font-weight: 500;
   line-height: 1.45;
-  color: rgba(246, 246, 242, 0.62);
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.35);
+  color: #111;
+  max-width: 20rem;
+}
+
+.spinner {
+  display: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--yellow);
+  animation: spin 0.7s linear infinite;
+}
+
+body.is-loading .figures {
+  display: none;
+}
+
+body.is-loading .spinner {
+  display: block;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .scrim {
@@ -176,5 +205,10 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .fill {
     transition: none;
+  }
+
+  .spinner {
+    animation: none;
+    border-top-color: var(--yellow);
   }
 }
