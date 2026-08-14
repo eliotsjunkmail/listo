@@ -93,7 +93,13 @@
   }
 
   function persist(cfg) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+    const payload = JSON.stringify(cfg);
+    writeCookie(STORAGE_KEY, payload);
+    try {
+      localStorage.setItem(STORAGE_KEY, payload);
+    } catch {
+      /* cookie is the source of truth */
+    }
   }
 
   function compactMoney(n) {
@@ -117,7 +123,12 @@
     );
   }
 
-  function slimPrice(n) {
+  function compactK(n) {
+    if (n == null || Number.isNaN(n)) return "—";
+    const k = Math.abs(n) / 1e3;
+    const digits = k >= 100 ? 0 : 1;
+    return (n < 0 ? "−" : "") + "$" + k.toFixed(digits).replace(/\.0$/, "") + "K";
+  }
     if (n == null || Number.isNaN(n) || !Number.isFinite(n)) return "—";
     const abs = Math.abs(n);
     const formatted = abs.toFixed(abs >= 10 ? 2 : 2).replace(/\.?0+$/, "");
