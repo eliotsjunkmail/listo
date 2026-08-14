@@ -21,7 +21,13 @@
     assets: document.getElementById("assets"),
     target: document.getElementById("target"),
     distribution: document.getElementById("distribution"),
+    slider: document.getElementById("price-slider"),
+    slideNow: document.getElementById("slide-now"),
   };
+
+  const SLIDER_MAX = 26.37;
+  let sliding = false;
+  let sliderPrice = null;
 
   /** @type {{symbol?:string, price:number|null, change:number|null, time:Date|null}|null} */
   let quote = null;
@@ -156,9 +162,15 @@
   }
 
   async function fetchJson(url) {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    return res.json();
+    const ctrl = new AbortController();
+    const timer = window.setTimeout(() => ctrl.abort(), 6000);
+    try {
+      const res = await fetch(url, { cache: "no-store", signal: ctrl.signal });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return await res.json();
+    } finally {
+      window.clearTimeout(timer);
+    }
   }
 
   async function loadYahoo(symbol) {
@@ -207,7 +219,8 @@
 
   function render() {
     const { shares, assets, target, symbol, distribution } = loadSettings();
-    const price = quote?.price ?? null;
+    const livePrice = quote?.price ?? null;
+    const price = sliderPrice != null ? sliderPrice : livePrice;
     const stockValue = price != null ? price * shares : null;
     const value = stockValue != null ? stockValue + assets : null;
     const pct = value != null && target > 0 ? Math.min(100, (value / target) * 100) : 0;
@@ -269,6 +282,15 @@
     els.fill.style.height = pct + "%";
     els.fill.classList.toggle("is-done", pct >= 100);
     document.title = compactMoney(value);
+
+    if (els.slider && !sliding && livePrice != null) {
+      els.slider.value = String(Math.min(SLIDER_MAX, Math.max(0, livePrice)));
+      sliderPrice = Number(els.slider.value);
+    }
+    if (els.slideNow) {
+      const shown = sliderPrice != null ? sliderPrice : livePrice;
+      els.slideNow.textContent = shown == null ? "" : slimPrice(shown);
+    }
   }
 
   async function refresh() {
@@ -282,6 +304,10 @@
         cfg.symbol = quote.symbol;
         persist(cfg);
         els.symbol.value = quote.symbol;
+      }
+      if (quote.price != null && !sliding) {
+        sliderPrice = Math.min(SLIDER_MAX, Math.max(0, quote.price));
+        els.slider.value = String(sliderPrice);
       }
       render();
     } catch (err) {
@@ -321,6 +347,20 @@
   els.assets.value = String(saved.assets);
   els.target.value = String(saved.target);
   els.distribution.value = String(saved.distribution);
+  els.slider.max = String(SLIDER_MAX);
+
+  els.slider.addEventListener("pointerdown", () => {
+    sliding = true;
+  });
+  window.addEventListener("pointerup", () => {
+    sliding = false;
+  });
+  els.slider.addEventListener("input", () => {
+    sliding = true;
+    sliderPrice = Number(els.slider.value);
+    render();
+  });
+
   render();
 
   els.gear.addEventListener("click", openSettings);
