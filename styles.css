@@ -1,15 +1,11 @@
 :root {
-  --foam: #f4efe6;
-  --ink: #1c1712;
-  --amber: #c47a2c;
-  --glass: rgba(255, 255, 255, 0.18);
+  --foam: #eef6ff;
+  --ink: #071018;
   --font-display: "Fraunces", Georgia, serif;
   --font-body: "Manrope", sans-serif;
 }
 
-*,
-*::before,
-*::after {
+* {
   box-sizing: border-box;
 }
 
@@ -19,7 +15,7 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #0e0c0a;
+  background: #071018;
   color: var(--foam);
   font-family: var(--font-body);
   touch-action: none;
@@ -28,62 +24,67 @@ body {
 }
 
 #glass {
-  display: block;
-  width: 100%;
-  height: 100%;
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .hud {
   position: fixed;
+  top: max(0.75rem, env(safe-area-inset-top));
   left: 0;
   right: 0;
-  top: max(0.85rem, env(safe-area-inset-top));
   z-index: 2;
-  pointer-events: none;
   text-align: center;
+  pointer-events: none;
   padding: 0 1rem;
 }
 
 .brand {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(1.8rem, 6vw, 2.4rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: rgba(244, 239, 230, 0.92);
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.35);
+  font-size: clamp(1.8rem, 7vw, 2.5rem);
+  color: #f3f8ff;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
 }
 
 .sub {
-  margin: 0.25rem 0 0;
-  font-size: 0.92rem;
-  color: rgba(244, 239, 230, 0.7);
+  margin: 0.3rem 0 0;
+  font-size: 0.95rem;
+  color: rgba(238, 246, 255, 0.78);
+}
+
+.debug {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: rgba(160, 210, 255, 0.75);
+  font-variant-numeric: tabular-nums;
 }
 
 .enable {
   position: fixed;
   z-index: 3;
   left: 50%;
-  bottom: max(1.5rem, env(safe-area-inset-bottom));
+  bottom: max(1.4rem, env(safe-area-inset-bottom));
   transform: translateX(-50%);
   border: 0;
   border-radius: 12px;
-  padding: 0.85rem 1.4rem;
-  background: rgba(244, 239, 230, 0.92);
+  padding: 0.9rem 1.35rem;
+  background: #e8f3ff;
   color: var(--ink);
   font-family: var(--font-body);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
 }
 
 .enable[hidden] {
-  display: none;
+  display: none !important;
 }
 
 .enable:active {
-  transform: translateX(-50%) scale(0.98);
+  transform: translateX(-50%) scale(0.97);
 }
