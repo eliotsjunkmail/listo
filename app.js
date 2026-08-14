@@ -8,27 +8,25 @@
   let height = 0;
   let dpr = 1;
 
-  // Smoothed gravity direction in screen space (points "down")
+  // Gravity direction in screen space (points toward "down")
   let gx = 0;
   let gy = 1;
   let targetGx = 0;
   let targetGy = 1;
 
-  // Liquid fill 0–1 of glass height
-  const FILL = 0.62;
+  const FILL = 0.58; // fraction of glass volume
   let wavePhase = 0;
   let splash = 0;
+  let motionLive = false;
+  let lastTs = performance.now();
 
   /** @type {{x:number,y:number,r:number,vx:number,vy:number,life:number}[]} */
   let bubbles = [];
 
-  let motionLive = false;
-  let lastTs = performance.now();
-
   function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
-    width = window.innerWidth;
-    height = window.innerHeight;
+    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    width = Math.max(1, window.innerWidth);
+    height = Math.max(1, window.innerHeight);
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
     canvas.style.width = `${width}px`;
@@ -37,73 +35,89 @@
   }
 
   function glassGeometry() {
-    const top = height * 0.08;
-    const bottom = height * 0.92;
-    const midY = (top + bottom) / 2;
-    const topW = Math.min(width * 0.78, 420);
-    const botW = Math.min(width * 0.52, 280);
-    const cx = width / 2;
-    return { top, bottom, midY, topW, botW, cx, h: bottom - top };
+    const marginX = Math.max(24, width * 0.08);
+    const top = height * 0.14;
+    const bottom = height * 0.9;
+    const topW = Math.min(width - marginX * 2, 440);
+    const botW = topW * 0.62;
+    return {
+      top,
+      bottom,
+      h: bottom - top,
+      topW,
+      botW,
+      cx: width / 2,
+    };
   }
 
-  function widthAtY(y, g) {
-    const t = (y - g.top) / g.h;
-    const w = g.topW + (g.botW - g.topW) * t * t;
-    return w;
+  function halfWidthAt(y, g) {
+    const t = Math.min(1, Math.max(0, (y - g.top) / g.h));
+    // Slight taper toward base
+    const w = g.topW + (g.botW - g.topW) * (t * t);
+    return w / 2;
   }
 
-  function clampGravity() {
-    const len = Math.hypot(targetGx, targetGy) || 1;
-    targetGx /= len;
-    targetGy /= len;
-    // Keep some downward bias so liquid doesn't stick to ceiling forever
-    if (targetGy < 0.15) {
-      targetGy = 0.15 + targetGy * 0.5;
-      const n = Math.hypot(targetGx, targetGy) || 1;
-      targetGx /= n;
-      targetGy /= n;
+  function normalize(x, y) {
+    const len = Math.hypot(x, y) || 1;
+    return { x: x / len, y: y / len };
+  }
+
+  function setTargetGravity(x, y) {
+    let n = normalize(x, y);
+    // Never let gravity point fully upward — keep liquid readable
+    if (n.y < 0.2) {
+      n = normalize(n.x, 0.2 + Math.max(0, n.y));
     }
+    targetGx = n.x;
+    targetGy = n.y;
   }
 
+  /**
+   * iPhone portrait (screen facing you, upright): beta ≈ 90, gamma ≈ 0
+   * → gravity should be (0, 1) = toward bottom of screen.
+   * Use sin(beta) for screen-down, sin(gamma) for screen-right.
+   */
   function onOrientation(e) {
-    // beta: front-back (-180..180), gamma: left-right (-90..90)
-    const beta = e.beta ?? 0;
-    const gamma = e.gamma ?? 0;
-    // Map tilt to gravity vector
+    let beta = e.beta;
+    let gamma = e.gamma;
+    if (beta == null || gamma == null) return;
+
+    // Normalize beta into a friendly range when device flips
+    if (beta > 90) beta = 90;
+    if (beta < -90) beta = -90;
+
     const radB = (beta * Math.PI) / 180;
     const radG = (gamma * Math.PI) / 180;
-    targetGx = Math.sin(radG);
-    targetGy = Math.cos(radG) * Math.cos(radB);
-    if (targetGy < 0.05) targetGy = 0.05;
-    clampGravity();
+
+    const x = Math.sin(radG);
+    const y = Math.sin(radB); // ~1 when phone upright
+    setTargetGravity(x, Math.max(0.15, y));
     motionLive = true;
     statusEl.textContent = "Liquid follows your tilt";
   }
 
   function onMotion(e) {
     const a = e.accelerationIncludingGravity;
-    if (!a || a.x == null) return;
-    // Device coords vary; invert x for natural pour
-    targetGx = -(a.x || 0) / 9.8;
-    targetGy = (a.y || 0) / 9.8;
-    if (Math.abs(targetGy) < 0.05 && Math.abs(targetGx) < 0.05) {
-      targetGy = 1;
-      targetGx = 0;
+    if (!a || (a.x == null && a.y == null)) return;
+
+    // Portrait phone: +x right, +y up (device). Screen down ≈ -deviceY.
+    const x = -(a.x || 0);
+    const y = a.y || 0;
+    // Prefer orientation when available; motion as backup with damping
+    if (!motionLive) {
+      setTargetGravity(x / 9.8, Math.max(0.15, -y / 9.8 + 0.5));
+      statusEl.textContent = "Liquid follows your motion";
     }
-    clampGravity();
-    motionLive = true;
-    statusEl.textContent = "Liquid follows your motion";
   }
 
   function onPointer(e) {
     if (motionLive) return;
-    const x = (e.clientX ?? e.touches?.[0]?.clientX ?? width / 2) / width;
-    const y = (e.clientY ?? e.touches?.[0]?.clientY ?? height / 2) / height;
-    targetGx = (x - 0.5) * 1.6;
-    targetGy = 0.55 + y * 0.55;
-    clampGravity();
-    splash = Math.min(1, splash + 0.08);
-    statusEl.textContent = "Drag to tip the glass · enable motion on phone";
+    const point = e.touches?.[0] || e;
+    const x = point.clientX / width;
+    const y = point.clientY / height;
+    setTargetGravity((x - 0.5) * 2.2, 0.45 + y * 0.7);
+    splash = Math.min(1, splash + 0.12);
+    statusEl.textContent = "Drag to tip · Enable motion on iPhone";
   }
 
   async function enableMotion() {
@@ -112,7 +126,7 @@
       if (DOE && typeof DOE.requestPermission === "function") {
         const res = await DOE.requestPermission();
         if (res !== "granted") {
-          statusEl.textContent = "Motion blocked — drag to tip instead";
+          statusEl.textContent = "Permission denied — drag to tip instead";
           enableBtn.hidden = true;
           return;
         }
@@ -120,290 +134,252 @@
       window.addEventListener("deviceorientation", onOrientation, true);
       window.addEventListener("devicemotion", onMotion, true);
       enableBtn.hidden = true;
+      motionLive = true;
       statusEl.textContent = "Tilt your phone — pour away";
     } catch {
-      statusEl.textContent = "Motion unavailable — drag to tip the glass";
+      statusEl.textContent = "Motion unavailable — drag to tip";
       enableBtn.hidden = true;
     }
   }
 
-  function spawnBubbles(g, surfaceY, count) {
-    for (let i = 0; i < count; i++) {
-      const y = g.top + g.h * (0.35 + Math.random() * 0.55);
-      const half = widthAtY(y, g) / 2 - 12;
-      bubbles.push({
-        x: g.cx + (Math.random() - 0.5) * half * 1.4,
-        y,
-        r: 1.5 + Math.random() * 4,
-        vx: (Math.random() - 0.5) * 10,
-        vy: -12 - Math.random() * 28,
-        life: 2 + Math.random() * 3,
-      });
-    }
+  function spawnBubble(g) {
+    const y = g.top + g.h * (0.4 + Math.random() * 0.5);
+    const half = halfWidthAt(y, g) - 10;
+    if (half < 8) return;
+    bubbles.push({
+      x: g.cx + (Math.random() - 0.5) * half * 1.5,
+      y,
+      r: 1.2 + Math.random() * 3.5,
+      vx: (Math.random() - 0.5) * 12,
+      vy: -20 - Math.random() * 30,
+      life: 1.8 + Math.random() * 2.5,
+    });
   }
 
   function update(dt) {
-    // Smooth gravity
-    gx += (targetGx - gx) * Math.min(1, dt * 6);
-    gy += (targetGy - gy) * Math.min(1, dt * 6);
-    const glen = Math.hypot(gx, gy) || 1;
-    gx /= glen;
-    gy /= glen;
+    gx += (targetGx - gx) * Math.min(1, dt * 7);
+    gy += (targetGy - gy) * Math.min(1, dt * 7);
+    ({ x: gx, y: gy } = normalize(gx, gy));
 
-    const tilt = Math.hypot(gx, gy - 1);
-    wavePhase += dt * (1.8 + tilt * 8);
-    splash = Math.max(0, splash - dt * 0.55);
-    splash = Math.min(1, splash + tilt * dt * 0.9);
+    const tilt = Math.hypot(gx, Math.max(0, gy) - 1);
+    wavePhase += dt * (2 + tilt * 10);
+    splash = Math.max(0, splash * (1 - dt * 1.8));
+    splash = Math.min(1, splash + tilt * dt * 1.4);
 
     const g = glassGeometry();
-    if (Math.random() < dt * (1.2 + splash * 4)) {
-      spawnBubbles(g, 0, 1);
-    }
-
-    // Liquid surface plane: points with normal = gravity
-    // Surface passes through fill center of glass
-    const fillCenterY = g.bottom - g.h * FILL * 0.5;
+    if (Math.random() < dt * (1.5 + splash * 5)) spawnBubble(g);
 
     for (let i = bubbles.length - 1; i >= 0; i--) {
       const b = bubbles[i];
       b.life -= dt;
-      b.vx += -gx * 40 * dt;
-      b.vy += -gy * 60 * dt;
+      // Rise against gravity
+      b.vx += -gx * 50 * dt + (Math.random() - 0.5) * 8 * dt;
+      b.vy += -gy * 70 * dt;
       b.x += b.vx * dt;
       b.y += b.vy * dt;
-      // Rise relative to gravity (against down)
-      b.x -= gx * 18 * dt;
-      b.y -= gy * 28 * dt;
 
-      const half = widthAtY(Math.min(Math.max(b.y, g.top), g.bottom), g) / 2 - 4;
-      if (b.x < g.cx - half || b.x > g.cx + half || b.life <= 0 || b.y < g.top) {
+      const half = halfWidthAt(Math.min(Math.max(b.y, g.top), g.bottom), g) - 4;
+      const surface = surfaceY(b.x, g);
+      if (
+        b.life <= 0 ||
+        b.y < surface - 4 ||
+        b.x < g.cx - half ||
+        b.x > g.cx + half
+      ) {
         bubbles.splice(i, 1);
       }
     }
-
-    void fillCenterY;
   }
 
-  function drawGlassShell(g) {
-    // Table / room backdrop
-    const bg = ctx.createLinearGradient(0, 0, 0, height);
-    bg.addColorStop(0, "#1a1510");
-    bg.addColorStop(0.45, "#2a2118");
-    bg.addColorStop(1, "#0c0a08");
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, width, height);
-
-    // Soft vignette light
-    const light = ctx.createRadialGradient(
-      width * 0.35,
-      height * 0.2,
-      20,
-      width * 0.5,
-      height * 0.45,
-      height * 0.75
-    );
-    light.addColorStop(0, "rgba(255,220,160,0.14)");
-    light.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = light;
-    ctx.fillRect(0, 0, width, height);
-  }
-
-  function clipGlass(g) {
-    ctx.beginPath();
-    const steps = 28;
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const y = g.top + g.h * t;
-      const half = widthAtY(y, g) / 2;
-      const x = g.cx - half;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    for (let i = steps; i >= 0; i--) {
-      const t = i / steps;
-      const y = g.top + g.h * t;
-      const half = widthAtY(y, g) / 2;
-      ctx.lineTo(g.cx + half, y);
-    }
-    ctx.closePath();
-  }
-
-  function surfaceYAtX(x, g) {
-    // Plane: (p - center) · gravity = offset for fill amount
-    // center of mass-ish at fill height along glass axis when upright
-    const uprightSurface = g.bottom - g.h * FILL;
-    // Point on plane: uprightSurface along glass center, then tilt
-    const cx = g.cx;
-    const cy = uprightSurface;
-    // For point (x,y) on plane: (x-cx)*gx + (y-cy)*gy = 0 => y = cy - (x-cx)*gx/gy
-    const denom = Math.max(0.2, gy);
-    let y = cy - ((x - cx) * gx) / denom;
-    // Wave along surface tangent
-    const tangentX = gy;
-    const along = (x - cx) * tangentX;
-    y += Math.sin(wavePhase + along * 0.045) * (5 + splash * 14);
-    y += Math.sin(wavePhase * 1.7 + along * 0.02) * (2 + splash * 6);
+  function surfaceY(x, g) {
+    // Upright fill line, then tilt with gravity so liquid settles "down"
+    const base = g.bottom - g.h * FILL;
+    const denom = Math.max(0.35, gy);
+    let y = base - ((x - g.cx) * gx) / denom;
+    const along = (x - g.cx) * gy;
+    y += Math.sin(wavePhase + along * 0.05) * (4 + splash * 16);
+    y += Math.sin(wavePhase * 1.6 + along * 0.02) * (2 + splash * 7);
     return y;
   }
 
-  function drawLiquid(g) {
-    ctx.save();
-    clipGlass(g);
-    ctx.clip();
-
-    // Sample surface across glass
-    const samples = [];
-    const steps = 48;
+  function buildGlassPath(g) {
+    const steps = 36;
+    ctx.beginPath();
     for (let i = 0; i <= steps; i++) {
       const t = i / steps;
-      // x across max top width then clamp to local
-      const x = g.cx - g.topW / 2 + t * g.topW;
-      const y = surfaceYAtX(x, g);
-      samples.push({ x, y });
+      const y = g.top + g.h * t;
+      const x = g.cx - halfWidthAt(y, g);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    // Bottom curve
+    ctx.quadraticCurveTo(g.cx, g.bottom + 14, g.cx + halfWidthAt(g.bottom, g), g.bottom);
+    for (let i = steps; i >= 0; i--) {
+      const t = i / steps;
+      const y = g.top + g.h * t;
+      ctx.lineTo(g.cx + halfWidthAt(y, g), y);
+    }
+    ctx.closePath();
+  }
+
+  function drawBackground() {
+    const bg = ctx.createLinearGradient(0, 0, 0, height);
+    bg.addColorStop(0, "#241c14");
+    bg.addColorStop(0.5, "#1a1410");
+    bg.addColorStop(1, "#0b0907");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, width, height);
+
+    const glow = ctx.createRadialGradient(
+      width * 0.5,
+      height * 0.35,
+      40,
+      width * 0.5,
+      height * 0.5,
+      height * 0.7
+    );
+    glow.addColorStop(0, "rgba(255, 200, 120, 0.1)");
+    glow.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  function drawLiquid(g) {
+    const steps = 56;
+    const left = g.cx - g.topW / 2;
+    const right = g.cx + g.topW / 2;
+
+    ctx.save();
+    buildGlassPath(g);
+    ctx.clip();
+
+    // Surface polyline
+    /** @type {{x:number,y:number}[]} */
+    const pts = [];
+    for (let i = 0; i <= steps; i++) {
+      const x = left + ((right - left) * i) / steps;
+      pts.push({ x, y: surfaceY(x, g) });
     }
 
-    // Liquid body path: surface then bottom corners
     ctx.beginPath();
-    ctx.moveTo(samples[0].x, samples[0].y);
-    for (let i = 1; i < samples.length; i++) {
-      ctx.lineTo(samples[i].x, samples[i].y);
-    }
-    // Down right side of glass to bottom, across, up left
-    const botHalf = g.botW / 2;
-    ctx.lineTo(g.cx + botHalf, g.bottom);
-    ctx.lineTo(g.cx - botHalf, g.bottom);
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.lineTo(right + 40, g.bottom + 80);
+    ctx.lineTo(left - 40, g.bottom + 80);
     ctx.closePath();
 
-    const lg = ctx.createLinearGradient(
-      g.cx - gx * 200,
-      g.cy - gy * 200,
-      g.cx + gx * 220,
-      g.bottom
-    );
-    // fix g.cy
     const mid = (g.top + g.bottom) / 2;
     const grad = ctx.createLinearGradient(
-      g.cx - gx * height * 0.25,
-      mid - gy * height * 0.25,
-      g.cx + gx * height * 0.2,
-      mid + gy * height * 0.35
+      g.cx - gx * 160,
+      mid - gy * 120,
+      g.cx + gx * 120,
+      g.bottom
     );
-    grad.addColorStop(0, "rgba(232, 170, 90, 0.92)");
-    grad.addColorStop(0.45, "rgba(196, 122, 44, 0.94)");
-    grad.addColorStop(1, "rgba(120, 58, 18, 0.96)");
+    grad.addColorStop(0, "#e8b45a");
+    grad.addColorStop(0.4, "#d4892f");
+    grad.addColorStop(0.75, "#a85a18");
+    grad.addColorStop(1, "#6e3510");
     ctx.fillStyle = grad;
     ctx.fill();
 
-    // Meniscus highlight on surface
+    // Surface sheen
     ctx.beginPath();
-    ctx.moveTo(samples[0].x, samples[0].y);
-    for (let i = 1; i < samples.length; i++) {
-      ctx.lineTo(samples[i].x, samples[i].y);
-    }
-    ctx.strokeStyle = "rgba(255, 236, 200, 0.55)";
-    ctx.lineWidth = 2.5;
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.strokeStyle = "rgba(255, 245, 210, 0.7)";
+    ctx.lineWidth = 3;
     ctx.stroke();
 
-    // Inner caustic streaks
-    ctx.globalAlpha = 0.12;
-    for (let i = 0; i < 5; i++) {
-      const px = g.cx + Math.sin(wavePhase * 0.4 + i) * 40 - gx * 30;
-      const py = mid + 40 + i * 28;
-      const streak = ctx.createLinearGradient(px, py, px + 30, py + 80);
-      streak.addColorStop(0, "rgba(255,230,170,0.8)");
-      streak.addColorStop(1, "rgba(255,230,170,0)");
-      ctx.fillStyle = streak;
-      ctx.fillRect(px, py, 18, 90);
-    }
-    ctx.globalAlpha = 1;
+    // Foam line
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+    ctx.lineWidth = 6;
+    ctx.stroke();
 
-    // Bubbles
+    // Bubbles inside liquid only
     for (const b of bubbles) {
+      if (b.y < surfaceY(b.x, g)) continue;
       ctx.beginPath();
       ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(255,245,220,0.35)";
+      ctx.fillStyle = "rgba(255, 248, 230, 0.4)";
       ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.45)";
+      ctx.strokeStyle = "rgba(255,255,255,0.5)";
       ctx.lineWidth = 1;
       ctx.stroke();
     }
 
     ctx.restore();
-    void liquidColor;
   }
 
-  function drawGlassRim(g) {
-    // Glass wall (stroke)
+  function drawGlass(g) {
+    // Inner empty glass tint
     ctx.save();
-    clipGlass(g);
-    ctx.lineWidth = 10;
-    ctx.strokeStyle = "rgba(255,255,255,0.14)";
+    buildGlassPath(g);
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
+    ctx.fill();
+    ctx.restore();
+
+    drawLiquid(g);
+
+    // Rim + walls
+    ctx.save();
+    buildGlassPath(g);
+    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.lineWidth = 2.5;
     ctx.stroke();
     ctx.restore();
 
-    // Outer silhouette
-    ctx.save();
-    clipGlass(g);
-    ctx.strokeStyle = "rgba(255,255,255,0.28)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.restore();
-
-    // Specular rim left
+    // Left specular
     ctx.beginPath();
-    for (let i = 0; i <= 24; i++) {
-      const t = i / 24;
+    for (let i = 0; i <= 30; i++) {
+      const t = i / 30;
       const y = g.top + g.h * t;
-      const half = widthAtY(y, g) / 2;
-      const x = g.cx - half + 6;
+      const x = g.cx - halfWidthAt(y, g) + 7;
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = "rgba(255,255,255,0.38)";
+    ctx.strokeStyle = "rgba(255,255,255,0.5)";
     ctx.lineWidth = 3;
     ctx.lineCap = "round";
     ctx.stroke();
 
-    // Specular rim right (thinner)
+    // Right specular
     ctx.beginPath();
-    for (let i = 0; i <= 24; i++) {
-      const t = i / 24;
+    for (let i = 0; i <= 30; i++) {
+      const t = i / 30;
       const y = g.top + g.h * t;
-      const half = widthAtY(y, g) / 2;
-      const x = g.cx + half - 5;
+      const x = g.cx + halfWidthAt(y, g) - 6;
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = "rgba(255,255,255,0.16)";
+    ctx.strokeStyle = "rgba(255,255,255,0.18)";
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Top ellipse rim
+    // Top rim ellipse
     ctx.beginPath();
-    ctx.ellipse(g.cx, g.top + 4, g.topW / 2, 10, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(255,255,255,0.45)";
-    ctx.lineWidth = 2.5;
+    ctx.ellipse(g.cx, g.top + 3, g.topW / 2, 11, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255,255,255,0.55)";
+    ctx.lineWidth = 3;
     ctx.stroke();
-    ctx.fillStyle = "rgba(255,255,255,0.05)";
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
     ctx.fill();
 
-    // Base
+    // Base shadow + foot
     ctx.beginPath();
-    ctx.ellipse(g.cx, g.bottom + 2, g.botW / 2 + 8, 8, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.ellipse(g.cx, g.bottom + 6, g.botW / 2 + 16, 10, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
     ctx.fill();
+
     ctx.beginPath();
-    ctx.ellipse(g.cx, g.bottom, g.botW / 2 + 2, 5, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(255,255,255,0.25)";
+    ctx.ellipse(g.cx, g.bottom, g.botW / 2 + 4, 6, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255,255,255,0.3)";
     ctx.lineWidth = 2;
     ctx.stroke();
   }
 
   function draw() {
-    const g = glassGeometry();
-    drawGlassShell(g);
-    drawLiquid(g);
-    drawGlassRim(g);
+    drawBackground();
+    drawGlass(glassGeometry());
   }
 
   function loop(ts) {
@@ -421,29 +397,46 @@
 
   resize();
   window.addEventListener("resize", resize);
+  window.addEventListener("orientationchange", () => setTimeout(resize, 200));
+
   window.addEventListener("pointerdown", onPointer);
   window.addEventListener("pointermove", (e) => {
-    if (e.buttons || e.pressure > 0) onPointer(e);
+    if (e.buttons) onPointer(e);
   });
-  window.addEventListener("touchmove", onPointer, { passive: false });
+  window.addEventListener(
+    "touchmove",
+    (e) => {
+      e.preventDefault();
+      onPointer(e);
+    },
+    { passive: false }
+  );
 
+  // Always show enable on iOS; also try listening anyway on others
   if (needsPermissionGate()) {
     enableBtn.hidden = false;
-    statusEl.textContent = "Tap Enable motion, then tilt the phone";
+    statusEl.textContent = "Tap Enable motion, then tilt";
     enableBtn.addEventListener("click", enableMotion);
   } else {
     window.addEventListener("deviceorientation", onOrientation, true);
     window.addEventListener("devicemotion", onMotion, true);
-    statusEl.textContent = "Tilt your phone · drag if on desktop";
+    // Android sometimes needs a tap before sensors start
+    enableBtn.hidden = false;
+    enableBtn.textContent = "Start sensors";
+    enableBtn.addEventListener("click", () => {
+      window.addEventListener("deviceorientation", onOrientation, true);
+      window.addEventListener("devicemotion", onMotion, true);
+      enableBtn.hidden = true;
+      statusEl.textContent = "Tilt your phone";
+    });
+    statusEl.textContent = "Tilt phone · or tap Start sensors";
   }
 
-  // Idle sway so it feels alive before input
+  // Gentle idle sway before sensors
   setInterval(() => {
     if (motionLive) return;
-    targetGx = Math.sin(performance.now() / 1400) * 0.12;
-    targetGy = 1;
-    clampGravity();
-  }, 32);
+    setTargetGravity(Math.sin(performance.now() / 1600) * 0.15, 1);
+  }, 40);
 
   requestAnimationFrame(loop);
 })();
