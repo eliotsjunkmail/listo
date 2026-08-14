@@ -4,58 +4,69 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Cache-Control" content="no-cache" />
-    <title>SNAP Quote</title>
+    <title>Holdings</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=6" />
+    <link rel="stylesheet" href="styles.css?v=7" />
   </head>
   <body>
     <div class="atmosphere" aria-hidden="true"></div>
 
     <main class="sheet">
       <header class="top">
-        <p class="brand">SNAP</p>
+        <label class="sr-only" for="symbol">Stock symbol</label>
+        <input
+          id="symbol"
+          class="brand-input"
+          type="text"
+          value="SNAP"
+          maxlength="8"
+          spellcheck="false"
+          autocomplete="off"
+          aria-label="Stock symbol"
+        />
         <p class="company" id="company">Snap Inc.</p>
       </header>
 
       <section class="quote" aria-live="polite">
-        <p class="price" id="price">—</p>
+        <p class="price" id="value">—</p>
         <p class="change" id="change">Fetching quote…</p>
         <p class="asof" id="asof"></p>
       </section>
 
-      <section class="stats" id="stats">
-        <div>
-          <span class="label">Open</span>
-          <strong id="open">—</strong>
+      <section class="progress-block">
+        <div class="progress-meta">
+          <span id="progress-label">$0</span>
+          <span id="progress-pct">0%</span>
+          <span id="progress-target">$2,000,000</span>
         </div>
-        <div>
-          <span class="label">High</span>
-          <strong id="high">—</strong>
+        <div
+          class="bar"
+          role="progressbar"
+          aria-valuemin="0"
+          aria-valuemax="2000000"
+          aria-valuenow="0"
+          id="bar"
+        >
+          <div class="bar-fill" id="bar-fill"></div>
         </div>
-        <div>
-          <span class="label">Low</span>
-          <strong id="low">—</strong>
-        </div>
-        <div>
-          <span class="label">Prev close</span>
-          <strong id="prev">—</strong>
-        </div>
-        <div>
-          <span class="label">Volume</span>
-          <strong id="volume">—</strong>
-        </div>
-        <div>
-          <span class="label">Day range</span>
-          <strong id="range">—</strong>
-        </div>
+        <p class="remain" id="remain">Toward $2,000,000</p>
       </section>
 
-      <canvas id="spark" width="640" height="160" aria-label="Intraday price sparkline"></canvas>
+      <form class="controls" id="settings">
+        <label>
+          Shares
+          <input id="shares" type="number" min="0" step="1" value="130000" />
+        </label>
+        <label>
+          Target ($)
+          <input id="target" type="number" min="1" step="1" value="2000000" />
+        </label>
+      </form>
 
       <footer class="foot">
         <button type="button" id="refresh" class="refresh">Refresh</button>
@@ -63,6 +74,6 @@
       </footer>
     </main>
 
-    <script src="app.js?v=6"></script>
+    <script src="app.js?v=7"></script>
   </body>
 </html>

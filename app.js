@@ -1,43 +1,71 @@
 (() => {
-  const SYMBOL = "SNAP";
-  const YAHOO =
-    "https://query2.finance.yahoo.com/v8/finance/chart/SNAP?interval=5m&range=1d&includePrePost=false";
+  const STORAGE_KEY = "holdings-v1";
+  const DEFAULTS = { symbol: "SNAP", shares: 130000, target: 2000000 };
 
   const els = {
+    symbol: document.getElementById("symbol"),
     company: document.getElementById("company"),
-    price: document.getElementById("price"),
+    value: document.getElementById("value"),
     change: document.getElementById("change"),
     asof: document.getElementById("asof"),
-    open: document.getElementById("open"),
-    high: document.getElementById("high"),
-    low: document.getElementById("low"),
-    prev: document.getElementById("prev"),
-    volume: document.getElementById("volume"),
-    range: document.getElementById("range"),
+    progressLabel: document.getElementById("progress-label"),
+    progressPct: document.getElementById("progress-pct"),
+    progressTarget: document.getElementById("progress-target"),
+    remain: document.getElementById("remain"),
+    bar: document.getElementById("bar"),
+    barFill: document.getElementById("bar-fill"),
+    shares: document.getElementById("shares"),
+    target: document.getElementById("target"),
     note: document.getElementById("note"),
     refresh: document.getElementById("refresh"),
-    spark: document.getElementById("spark"),
   };
 
-  const ctx = els.spark.getContext("2d");
+  /** @type {{price:number|null, prev:number|null, change:number|null, changePct:number|null, exchange:string, time:Date, name:string}|null} */
+  let quote = null;
 
-  function money(n) {
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return { ...DEFAULTS };
+      const parsed = JSON.parse(raw);
+      return {
+        symbol: String(parsed.symbol || DEFAULTS.symbol).toUpperCase(),
+        shares: Number(parsed.shares) > 0 ? Number(parsed.shares) : DEFAULTS.shares,
+        target: Number(parsed.target) > 0 ? Number(parsed.target) : DEFAULTS.target,
+      };
+    } catch {
+      return { ...DEFAULTS };
+    }
+  }
+
+  function settings() {
+    const symbol = (els.symbol.value || DEFAULTS.symbol).trim().toUpperCase() || DEFAULTS.symbol;
+    const shares = Math.max(0, Number(els.shares.value) || 0);
+    const target = Math.max(1, Number(els.target.value) || DEFAULTS.target);
+    return { symbol, shares, target };
+  }
+
+  function persist() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings()));
+  }
+
+  function money(n, digits = 2) {
     if (n == null || Number.isNaN(n)) return "—";
     return (
       "$" +
       Number(n).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
       })
     );
   }
 
-  function compactVol(n) {
-    if (n == null || Number.isNaN(n)) return "—";
-    if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
-    if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
-    if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
-    return String(Math.round(n));
+  function yahooUrl(symbol) {
+    return (
+      "https://query2.finance.yahoo.com/v8/finance/chart/" +
+      encodeURIComponent(symbol) +
+      "?interval=5m&range=1d&includePrePost=false"
+    );
   }
 
   async function fetchJson(url) {
@@ -46,10 +74,11 @@
     return res.json();
   }
 
-  async function loadYahoo() {
-    const enc = encodeURIComponent(YAHOO);
+  async function loadYahoo(symbol) {
+    const url = yahooUrl(symbol);
+    const enc = encodeURIComponent(url);
     const attempts = [
-      async () => fetchJson(YAHOO),
+      async () => fetchJson(url),
       async () => {
         const j = await fetchJson("https://api.allorigins.win/get?url=" + enc);
         if (!j.contents) throw new Error("empty proxy");
@@ -57,9 +86,7 @@
       },
       async () => fetchJson("https://corsproxy.io/?" + enc),
       async () =>
-        fetchJson(
-          "https://api.codetabs.com/v1/proxy/?quest=" + encodeURIComponent(YAHOO)
-        ),
+        fetchJson("https://api.codetabs.com/v1/proxy/?quest=" + encodeURIComponent(url)),
     ];
 
     let lastErr;
@@ -78,125 +105,96 @@
 
   function parseQuote(result) {
     const meta = result.meta;
-    const quote = result.indicators?.quote?.[0] || {};
-    const closes = (quote.close || []).filter((v) => v != null);
+    const quoteData = result.indicators?.quote?.[0] || {};
+    const closes = (quoteData.close || []).filter((v) => v != null);
     const price = meta.regularMarketPrice ?? closes[closes.length - 1];
     const prev = meta.chartPreviousClose ?? meta.previousClose;
     const change = price != null && prev != null ? price - prev : null;
     const changePct = change != null && prev ? (change / prev) * 100 : null;
 
-    const highs = (quote.high || []).filter((v) => v != null);
-    const lows = (quote.low || []).filter((v) => v != null);
-    const vols = (quote.volume || []).filter((v) => v != null);
-    const opens = (quote.open || []).filter((v) => v != null);
-
     return {
-      symbol: meta.symbol || SYMBOL,
-      exchange: meta.fullExchangeName || meta.exchangeName || "NYSE",
-      currency: meta.currency || "USD",
+      symbol: meta.symbol,
+      name: meta.shortName || meta.longName || meta.symbol,
+      exchange: meta.fullExchangeName || meta.exchangeName || "",
       price,
       prev,
       change,
       changePct,
-      open: meta.regularMarketOpen ?? opens[0],
-      high: meta.regularMarketDayHigh ?? Math.max(...highs, price || 0),
-      low: meta.regularMarketDayLow ?? Math.min(...lows, price || 0),
-      volume: meta.regularMarketVolume ?? vols.reduce((a, b) => a + b, 0),
       time: meta.regularMarketTime
         ? new Date(meta.regularMarketTime * 1000)
         : new Date(),
-      series: closes,
     };
   }
 
-  function drawSpark(series, up) {
-    const w = els.spark.width;
-    const h = els.spark.height;
-    ctx.clearRect(0, 0, w, h);
+  function render() {
+    const { shares, target, symbol } = settings();
+    const price = quote?.price ?? null;
+    const value = price != null ? price * shares : null;
+    const pct = value != null && target > 0 ? Math.min(100, (value / target) * 100) : 0;
+    const remaining = value != null ? Math.max(0, target - value) : null;
 
-    if (!series || series.length < 2) {
-      ctx.fillStyle = "rgba(255,255,255,0.35)";
-      ctx.font = "20px IBM Plex Mono, monospace";
-      ctx.fillText("No chart data", 24, h / 2);
-      return;
+    els.value.textContent = money(value, 0);
+    els.progressLabel.textContent = money(value, 0);
+    els.progressTarget.textContent = money(target, 0);
+    els.progressPct.textContent = pct.toFixed(1) + "%";
+    els.barFill.style.width = pct + "%";
+    els.barFill.classList.toggle("is-done", pct >= 100);
+    els.bar.setAttribute("aria-valuemax", String(target));
+    els.bar.setAttribute("aria-valuenow", String(Math.round(value || 0)));
+
+    if (remaining == null) {
+      els.remain.textContent = "Toward " + money(target, 0);
+    } else if (remaining <= 0) {
+      els.remain.textContent = "Target reached";
+    } else {
+      els.remain.textContent = money(remaining, 0) + " to go";
     }
 
-    const min = Math.min(...series);
-    const max = Math.max(...series);
-    const pad = 16;
-    const span = Math.max(max - min, 0.01);
+    if (!quote) return;
 
-    ctx.beginPath();
-    series.forEach((v, i) => {
-      const x = pad + (i / (series.length - 1)) * (w - pad * 2);
-      const y = h - pad - ((v - min) / span) * (h - pad * 2);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
+    els.company.textContent = (quote.name || symbol) + (quote.exchange ? " · " + quote.exchange : "");
 
-    const stroke = up ? "#3dd68c" : "#ff5c5c";
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = 3;
-    ctx.lineJoin = "round";
-    ctx.stroke();
-
-    // Fill under curve
-    const lastX = pad + (w - pad * 2);
-    const firstX = pad;
-    ctx.lineTo(lastX, h - pad);
-    ctx.lineTo(firstX, h - pad);
-    ctx.closePath();
-    const grad = ctx.createLinearGradient(0, pad, 0, h);
-    grad.addColorStop(0, up ? "rgba(61,214,140,0.28)" : "rgba(255,92,92,0.28)");
-    grad.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = grad;
-    ctx.fill();
-  }
-
-  function render(q) {
-    els.company.textContent = "Snap Inc. · " + q.exchange;
-    els.price.textContent = money(q.price);
-
-    const up = (q.change ?? 0) > 0;
-    const down = (q.change ?? 0) < 0;
-    const sign = up ? "+" : "";
+    const up = (quote.change ?? 0) > 0;
+    const down = (quote.change ?? 0) < 0;
+    const sign = up ? "+" : down ? "−" : "";
+    const dayValue = quote.change != null ? quote.change * shares : null;
     els.change.textContent =
-      q.change == null
+      quote.price == null
         ? "—"
-        : sign +
-          money(q.change).replace("$", "") +
-          "  (" +
-          sign +
-          q.changePct.toFixed(2) +
-          "%)";
-    els.change.className =
-      "change " + (up ? "is-up" : down ? "is-down" : "is-flat");
+        : money(quote.price) +
+          " / share" +
+          (quote.change == null
+            ? ""
+            : " · " +
+              sign +
+              money(Math.abs(dayValue), 0).replace("$", "") +
+              " today (" +
+              sign +
+              Math.abs(quote.changePct).toFixed(2) +
+              "%)");
+    els.change.className = "change " + (up ? "is-up" : down ? "is-down" : "is-flat");
 
     els.asof.textContent =
-      "As of " +
-      q.time.toLocaleString(undefined, {
+      shares.toLocaleString("en-US") +
+      " shares · as of " +
+      quote.time.toLocaleString(undefined, {
         dateStyle: "medium",
         timeStyle: "short",
       });
 
-    els.open.textContent = money(q.open);
-    els.high.textContent = money(q.high);
-    els.low.textContent = money(q.low);
-    els.prev.textContent = money(q.prev);
-    els.volume.textContent = compactVol(q.volume);
-    els.range.textContent = money(q.low) + " – " + money(q.high);
-
-    drawSpark(q.series, !down);
-    els.note.textContent = "SNAP · delayed quote · auto-refresh 60s";
+    els.note.textContent = symbol + " · delayed quote · auto-refresh 60s";
   }
 
   async function refresh() {
+    const { symbol } = settings();
     els.refresh.disabled = true;
-    els.change.textContent = "Fetching quote…";
+    els.change.textContent = "Fetching " + symbol + "…";
     els.change.className = "change is-flat";
     try {
-      const raw = await loadYahoo();
-      render(parseQuote(raw));
+      quote = parseQuote(await loadYahoo(symbol));
+      els.symbol.value = quote.symbol || symbol;
+      persist();
+      render();
     } catch (err) {
       els.change.textContent = "Could not load quote";
       els.change.className = "change is-down";
@@ -206,6 +204,32 @@
       els.refresh.disabled = false;
     }
   }
+
+  const saved = loadSettings();
+  els.symbol.value = saved.symbol;
+  els.shares.value = String(saved.shares);
+  els.target.value = String(saved.target);
+  render();
+
+  els.shares.addEventListener("input", () => {
+    persist();
+    render();
+  });
+  els.target.addEventListener("input", () => {
+    persist();
+    render();
+  });
+  els.symbol.addEventListener("change", () => {
+    els.symbol.value = els.symbol.value.trim().toUpperCase();
+    persist();
+    refresh();
+  });
+  els.symbol.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      els.symbol.blur();
+    }
+  });
 
   els.refresh.addEventListener("click", refresh);
   refresh();

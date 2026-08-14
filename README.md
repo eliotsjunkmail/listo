@@ -1,10 +1,18 @@
-# SNAP Quote
+# Holdings
 
-Live-ish stock quote for **SNAP** (Snap Inc.).
+Shows the dollar value of a stock position as a progress bar toward a dollar target.
+
+Defaults:
+
+- Symbol: **SNAP**
+- Shares: **130,000**
+- Target: **$2,000,000**
+
+Value = current price × shares. Symbol, share count, and target are editable.
 
 ## Open
 
-https://eliotsjunkmail.github.io/listo/?v=6
+https://eliotsjunkmail.github.io/listo/?v=7
 
 Or locally:
 
@@ -12,10 +20,4 @@ Or locally:
 npx --yes serve .
 ```
 
-## Features
-
-- Last price, day change, open / high / low / previous close / volume
-- Intraday sparkline
-- Refresh button + auto-refresh every 60s
-
-Data via Yahoo Finance (proxied when the browser blocks direct calls). Quotes may be delayed.
+Delayed quotes via Yahoo Finance.
