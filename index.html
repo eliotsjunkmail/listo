@@ -2,29 +2,67 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Cache-Control" content="no-cache" />
-    <title>Glass</title>
+    <title>SNAP Quote</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Manrope:wght@500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=5" />
+    <link rel="stylesheet" href="styles.css?v=6" />
   </head>
   <body>
-    <canvas id="glass"></canvas>
+    <div class="atmosphere" aria-hidden="true"></div>
 
-    <div class="hud">
-      <p class="brand">Glass</p>
-      <p class="sub" id="status">Tap the button, then tilt</p>
-      <p class="debug" id="debug">sensors: waiting</p>
-    </div>
+    <main class="sheet">
+      <header class="top">
+        <p class="brand">SNAP</p>
+        <p class="company" id="company">Snap Inc.</p>
+      </header>
 
-    <button type="button" id="enable" class="enable">Enable motion</button>
+      <section class="quote" aria-live="polite">
+        <p class="price" id="price">—</p>
+        <p class="change" id="change">Fetching quote…</p>
+        <p class="asof" id="asof"></p>
+      </section>
 
-    <script src="app.js?v=5"></script>
+      <section class="stats" id="stats">
+        <div>
+          <span class="label">Open</span>
+          <strong id="open">—</strong>
+        </div>
+        <div>
+          <span class="label">High</span>
+          <strong id="high">—</strong>
+        </div>
+        <div>
+          <span class="label">Low</span>
+          <strong id="low">—</strong>
+        </div>
+        <div>
+          <span class="label">Prev close</span>
+          <strong id="prev">—</strong>
+        </div>
+        <div>
+          <span class="label">Volume</span>
+          <strong id="volume">—</strong>
+        </div>
+        <div>
+          <span class="label">Day range</span>
+          <strong id="range">—</strong>
+        </div>
+      </section>
+
+      <canvas id="spark" width="640" height="160" aria-label="Intraday price sparkline"></canvas>
+
+      <footer class="foot">
+        <button type="button" id="refresh" class="refresh">Refresh</button>
+        <p class="note" id="note">Delayed quote · Yahoo Finance</p>
+      </footer>
+    </main>
+
+    <script src="app.js?v=6"></script>
   </body>
 </html>

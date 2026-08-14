@@ -1,12 +1,10 @@
-# Glass
+# SNAP Quote
 
-Your phone screen becomes a drinking glass. Amber liquid tilts and swirls with device motion.
+Live-ish stock quote for **SNAP** (Snap Inc.).
 
-## Play
+## Open
 
-Open on a phone (best):
-
-https://eliotsjunkmail.github.io/listo/
+https://eliotsjunkmail.github.io/listo/?v=6
 
 Or locally:
 
@@ -14,10 +12,10 @@ Or locally:
 npx --yes serve .
 ```
 
-1. Tap **Enable motion** if prompted (required on iPhone)
-2. Tilt and roll the phone — the drink moves with gravity
-3. On desktop, drag to tip the glass
+## Features
 
-## Stack
+- Last price, day change, open / high / low / previous close / volume
+- Intraday sparkline
+- Refresh button + auto-refresh every 60s
 
-Vanilla HTML canvas + device orientation / accelerometer.
+Data via Yahoo Finance (proxied when the browser blocks direct calls). Quotes may be delayed.

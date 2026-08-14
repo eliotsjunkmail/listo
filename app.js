@@ -1,386 +1,213 @@
 (() => {
-  const canvas = document.getElementById("glass");
-  const ctx = canvas.getContext("2d", { alpha: false });
-  const enableBtn = document.getElementById("enable");
-  const statusEl = document.getElementById("status");
-  const debugEl = document.getElementById("debug");
+  const SYMBOL = "SNAP";
+  const YAHOO =
+    "https://query2.finance.yahoo.com/v8/finance/chart/SNAP?interval=5m&range=1d&includePrePost=false";
 
-  let W = 0;
-  let H = 0;
-  let dpr = 1;
+  const els = {
+    company: document.getElementById("company"),
+    price: document.getElementById("price"),
+    change: document.getElementById("change"),
+    asof: document.getElementById("asof"),
+    open: document.getElementById("open"),
+    high: document.getElementById("high"),
+    low: document.getElementById("low"),
+    prev: document.getElementById("prev"),
+    volume: document.getElementById("volume"),
+    range: document.getElementById("range"),
+    note: document.getElementById("note"),
+    refresh: document.getElementById("refresh"),
+    spark: document.getElementById("spark"),
+  };
 
-  // Gravity "down" in screen space (x right, y down). Water surface ⊥ this.
-  let gx = 0;
-  let gy = 1;
-  let targetGx = 0;
-  let targetGy = 1;
+  const ctx = els.spark.getContext("2d");
 
-  // How strongly phone roll maps into the water line (1 = true horizon lock)
-  const SENSITIVITY = 0.32;
-  const SMOOTH = 4.5; // lower = slower / less twitchy
-
-  const FILL = 0.55;
-  let phase = 0;
-  let last = performance.now();
-  let usingSensors = false;
-
-  /** @type {{x:number,y:number,r:number,vx:number,vy:number,life:number}[]} */
-  const bubbles = [];
-
-  function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 3);
-    W = Math.max(320, window.innerWidth || document.documentElement.clientWidth);
-    H = Math.max(480, window.innerHeight || document.documentElement.clientHeight);
-    canvas.width = Math.floor(W * dpr);
-    canvas.height = Math.floor(H * dpr);
-    canvas.style.width = W + "px";
-    canvas.style.height = H + "px";
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-
-  function glass() {
-    const top = H * 0.16;
-    const bottom = H * 0.88;
-    const topW = Math.min(W * 0.82, 400);
-    const botW = topW * 0.64;
-    return { top, bottom, h: bottom - top, topW, botW, cx: W / 2 };
-  }
-
-  function halfAt(y, g) {
-    const t = Math.min(1, Math.max(0, (y - g.top) / g.h));
-    return (g.topW + (g.botW - g.topW) * t * t) / 2;
-  }
-
-  function setGravityDown(x, y) {
-    const len = Math.hypot(x, y);
-    if (len < 0.05) {
-      targetGx = 0;
-      targetGy = 1;
-      return;
-    }
-    targetGx = x / len;
-    targetGy = y / len;
-    // Keep a little downward bias so the meniscus stays drawable
-    if (targetGy < 0.12) {
-      const n = Math.hypot(targetGx, 0.12);
-      targetGx /= n;
-      targetGy = 0.12 / n;
-    }
-  }
-
-  /**
-   * Map deviceorientation → screen gravity (y down).
-   * Water plane stays world-level (parallel to horizon).
-   */
-  function applyOrientation(beta, gamma) {
-    if (beta == null || gamma == null || Number.isNaN(beta) || Number.isNaN(gamma)) {
-      return;
-    }
-
-    let b = Math.max(-90, Math.min(90, beta));
-    let g = Math.max(-90, Math.min(90, gamma));
-    const radB = (b * Math.PI) / 180;
-    const radG = (g * Math.PI) / 180;
-
-    // Unit gravity in device coords (W3C-style), then into screen x-right / y-down
-    const dx = Math.sin(radG); // device +X (right)
-    const dy = -Math.cos(radG) * Math.sin(radB); // device +Y (up of phone)
-    // screen: x = device x, y = -device y  (screen y grows downward)
-    setGravityDown(dx, -dy);
-
-    usingSensors = true;
-    const horizonDeg = (Math.atan2(targetGx, targetGy) * 180) / Math.PI;
-    statusEl.textContent = "Water stays level with the horizon";
-    debugEl.textContent =
-      "β " +
-      b.toFixed(0) +
-      "° γ " +
-      g.toFixed(0) +
-      "° · horizon " +
-      horizonDeg.toFixed(0) +
-      "°";
-  }
-
-  function onOrientation(e) {
-    applyOrientation(e.beta, e.gamma);
-  }
-
-  function onMotion(e) {
-    const a = e.accelerationIncludingGravity;
-    if (!a || a.x == null || a.y == null) return;
-
-    // Prefer raw gravity vector when available (most accurate horizon)
-    // Device: +x right, +y up. Screen y-down ⇒ (ax, -ay)
-    const sx = a.x;
-    const sy = -(a.y);
-    setGravityDown(sx, sy);
-    usingSensors = true;
-
-    const horizonDeg = (Math.atan2(targetGx, targetGy) * 180) / Math.PI;
-    statusEl.textContent = "Water stays level with the horizon";
-    debugEl.textContent =
-      "g " +
-      sx.toFixed(1) +
-      "," +
-      sy.toFixed(1) +
-      " · horizon " +
-      horizonDeg.toFixed(0) +
-      "°";
-  }
-
-  function onPointer(e) {
-    if (usingSensors) return; // sensors own the horizon lock
-    const t = e.touches && e.touches[0] ? e.touches[0] : e;
-    if (t.clientX == null) return;
-    const nx = (t.clientX / W - 0.5) * 2;
-    const ny = 0.75;
-    setGravityDown(nx, ny);
-    statusEl.textContent = "Drag tips the horizon · Enable motion for real level";
-    debugEl.textContent =
-      "manual horizon " + ((Math.atan2(targetGx, targetGy) * 180) / Math.PI).toFixed(0) + "°";
-  }
-
-  async function enableMotion() {
-    statusEl.textContent = "Requesting permission…";
-    try {
-      const DOE = window.DeviceOrientationEvent;
-      const DME = window.DeviceMotionEvent;
-      if (DOE && typeof DOE.requestPermission === "function") {
-        const r = await DOE.requestPermission();
-        if (r !== "granted") {
-          statusEl.textContent = "Denied — drag to tip instead";
-          enableBtn.hidden = true;
-          return;
-        }
-      }
-      if (DME && typeof DME.requestPermission === "function") {
-        try {
-          await DME.requestPermission();
-        } catch (_) {
-          /* optional */
-        }
-      }
-      window.addEventListener("deviceorientation", onOrientation, true);
-      window.addEventListener("devicemotion", onMotion, true);
-      enableBtn.hidden = true;
-      statusEl.textContent = "Sensors on — water locks to the horizon";
-    } catch (err) {
-      statusEl.textContent = "Sensors blocked — drag to tip";
-      debugEl.textContent = String(err && err.message ? err.message : err);
-      enableBtn.hidden = true;
-    }
-  }
-
-  /** Horizon-aligned free surface: plane ⟂ gravity = fill constant */
-  function surfaceY(x, g) {
-    const y0 = g.bottom - g.h * FILL;
-    const denom = Math.max(0.2, gy);
-    let y = y0 - ((x - g.cx) * gx) / denom;
-    // Soft ripples only — keep the mean surface horizon-true
-    const along = (x - g.cx) * gy - (y0 - g.cx) * 0; // distance along surface-ish
-    y += Math.sin(phase + along * 0.035) * 2.2;
-    y += Math.sin(phase * 1.5 + x * 0.02) * 1.2;
-    return y;
-  }
-
-  function pathGlass(g) {
-    const steps = 40;
-    ctx.beginPath();
-    for (let i = 0; i <= steps; i++) {
-      const y = g.top + (g.h * i) / steps;
-      const x = g.cx - halfAt(y, g);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.quadraticCurveTo(g.cx, g.bottom + 16, g.cx + halfAt(g.bottom, g), g.bottom);
-    for (let i = steps; i >= 0; i--) {
-      const y = g.top + (g.h * i) / steps;
-      ctx.lineTo(g.cx + halfAt(y, g), y);
-    }
-    ctx.closePath();
-  }
-
-  function draw() {
-    const bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0, "#0b1a28");
-    bg.addColorStop(1, "#050b12");
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, W, H);
-
-    const g = glass();
-
-    ctx.save();
-    pathGlass(g);
-    ctx.fillStyle = "rgba(180, 220, 255, 0.08)";
-    ctx.fill();
-    ctx.restore();
-
-    // Blue liquid under horizon plane
-    ctx.save();
-    pathGlass(g);
-    ctx.clip();
-
-    const left = g.cx - g.topW / 2 - 20;
-    const right = g.cx + g.topW / 2 + 20;
-    const steps = 72;
-    const deep = H * 1.25;
-
-    // Fill below the horizon plane (surface ⊥ gravity)
-    ctx.beginPath();
-    for (let i = 0; i <= steps; i++) {
-      const x = left + ((right - left) * i) / steps;
-      const y = surfaceY(x, g);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.lineTo(right + gx * deep, surfaceY(right, g) + gy * deep);
-    ctx.lineTo(left + gx * deep, surfaceY(left, g) + gy * deep);
-    ctx.closePath();
-
-    const water = ctx.createLinearGradient(
-      g.cx - gx * 100,
-      g.top,
-      g.cx + gx * 40,
-      g.bottom
+  function money(n) {
+    if (n == null || Number.isNaN(n)) return "—";
+    return (
+      "$" +
+      Number(n).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
     );
-    water.addColorStop(0, "#7ad0ff");
-    water.addColorStop(0.35, "#2f9de0");
-    water.addColorStop(0.7, "#1a6fbf");
-    water.addColorStop(1, "#0d3f7a");
-    ctx.fillStyle = water;
-    ctx.fill();
+  }
 
-    // Horizon line (water surface)
+  function compactVol(n) {
+    if (n == null || Number.isNaN(n)) return "—";
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+    return String(Math.round(n));
+  }
+
+  async function fetchJson(url) {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return res.json();
+  }
+
+  async function loadYahoo() {
+    const enc = encodeURIComponent(YAHOO);
+    const attempts = [
+      async () => fetchJson(YAHOO),
+      async () => {
+        const j = await fetchJson("https://api.allorigins.win/get?url=" + enc);
+        if (!j.contents) throw new Error("empty proxy");
+        return JSON.parse(j.contents);
+      },
+      async () => fetchJson("https://corsproxy.io/?" + enc),
+      async () =>
+        fetchJson(
+          "https://api.codetabs.com/v1/proxy/?quest=" + encodeURIComponent(YAHOO)
+        ),
+    ];
+
+    let lastErr;
+    for (const attempt of attempts) {
+      try {
+        const data = await attempt();
+        const result = data?.chart?.result?.[0];
+        if (!result?.meta) throw new Error("bad payload");
+        return result;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr || new Error("All quote sources failed");
+  }
+
+  function parseQuote(result) {
+    const meta = result.meta;
+    const quote = result.indicators?.quote?.[0] || {};
+    const closes = (quote.close || []).filter((v) => v != null);
+    const price = meta.regularMarketPrice ?? closes[closes.length - 1];
+    const prev = meta.chartPreviousClose ?? meta.previousClose;
+    const change = price != null && prev != null ? price - prev : null;
+    const changePct = change != null && prev ? (change / prev) * 100 : null;
+
+    const highs = (quote.high || []).filter((v) => v != null);
+    const lows = (quote.low || []).filter((v) => v != null);
+    const vols = (quote.volume || []).filter((v) => v != null);
+    const opens = (quote.open || []).filter((v) => v != null);
+
+    return {
+      symbol: meta.symbol || SYMBOL,
+      exchange: meta.fullExchangeName || meta.exchangeName || "NYSE",
+      currency: meta.currency || "USD",
+      price,
+      prev,
+      change,
+      changePct,
+      open: meta.regularMarketOpen ?? opens[0],
+      high: meta.regularMarketDayHigh ?? Math.max(...highs, price || 0),
+      low: meta.regularMarketDayLow ?? Math.min(...lows, price || 0),
+      volume: meta.regularMarketVolume ?? vols.reduce((a, b) => a + b, 0),
+      time: meta.regularMarketTime
+        ? new Date(meta.regularMarketTime * 1000)
+        : new Date(),
+      series: closes,
+    };
+  }
+
+  function drawSpark(series, up) {
+    const w = els.spark.width;
+    const h = els.spark.height;
+    ctx.clearRect(0, 0, w, h);
+
+    if (!series || series.length < 2) {
+      ctx.fillStyle = "rgba(255,255,255,0.35)";
+      ctx.font = "20px IBM Plex Mono, monospace";
+      ctx.fillText("No chart data", 24, h / 2);
+      return;
+    }
+
+    const min = Math.min(...series);
+    const max = Math.max(...series);
+    const pad = 16;
+    const span = Math.max(max - min, 0.01);
+
     ctx.beginPath();
-    for (let i = 0; i <= steps; i++) {
-      const x = left + ((right - left) * i) / steps;
-      const y = surfaceY(x, g);
+    series.forEach((v, i) => {
+      const x = pad + (i / (series.length - 1)) * (w - pad * 2);
+      const y = h - pad - ((v - min) / span) * (h - pad * 2);
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
-    }
-    ctx.strokeStyle = "rgba(230, 248, 255, 0.9)";
+    });
+
+    const stroke = up ? "#3dd68c" : "#ff5c5c";
+    ctx.strokeStyle = stroke;
     ctx.lineWidth = 3;
+    ctx.lineJoin = "round";
     ctx.stroke();
 
-    for (const b of bubbles) {
-      ctx.beginPath();
-      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(230, 250, 255, 0.45)";
-      ctx.fill();
-    }
-    ctx.restore();
-
-    ctx.save();
-    pathGlass(g);
-    ctx.strokeStyle = "rgba(210, 235, 255, 0.55)";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.beginPath();
-    for (let i = 0; i <= 28; i++) {
-      const y = g.top + (g.h * i) / 28;
-      const x = g.cx - halfAt(y, g) + 8;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.strokeStyle = "rgba(255,255,255,0.55)";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.ellipse(g.cx, g.top + 4, g.topW / 2, 12, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(230,245,255,0.7)";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.ellipse(g.cx, g.bottom + 8, g.botW / 2 + 14, 11, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    // Fill under curve
+    const lastX = pad + (w - pad * 2);
+    const firstX = pad;
+    ctx.lineTo(lastX, h - pad);
+    ctx.lineTo(firstX, h - pad);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, pad, 0, h);
+    grad.addColorStop(0, up ? "rgba(61,214,140,0.28)" : "rgba(255,92,92,0.28)");
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = grad;
     ctx.fill();
   }
 
-  function update(dt) {
-    // Snappy tracking so horizon feels locked
-    gx += (targetGx - gx) * Math.min(1, dt * 12);
-    gy += (targetGy - gy) * Math.min(1, dt * 12);
-    const len = Math.hypot(gx, gy) || 1;
-    gx /= len;
-    gy /= len;
+  function render(q) {
+    els.company.textContent = "Snap Inc. · " + q.exchange;
+    els.price.textContent = money(q.price);
 
-    phase += dt * 1.6;
+    const up = (q.change ?? 0) > 0;
+    const down = (q.change ?? 0) < 0;
+    const sign = up ? "+" : "";
+    els.change.textContent =
+      q.change == null
+        ? "—"
+        : sign +
+          money(q.change).replace("$", "") +
+          "  (" +
+          sign +
+          q.changePct.toFixed(2) +
+          "%)";
+    els.change.className =
+      "change " + (up ? "is-up" : down ? "is-down" : "is-flat");
 
-    const g = glass();
-    if (Math.random() < dt * 1.8) {
-      const y = g.top + g.h * (0.5 + Math.random() * 0.35);
-      bubbles.push({
-        x: g.cx + (Math.random() - 0.5) * halfAt(y, g),
-        y,
-        r: 1.5 + Math.random() * 3,
-        vx: -gx * 20,
-        vy: -gy * 40 - 10,
-        life: 2,
+    els.asof.textContent =
+      "As of " +
+      q.time.toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
       });
+
+    els.open.textContent = money(q.open);
+    els.high.textContent = money(q.high);
+    els.low.textContent = money(q.low);
+    els.prev.textContent = money(q.prev);
+    els.volume.textContent = compactVol(q.volume);
+    els.range.textContent = money(q.low) + " – " + money(q.high);
+
+    drawSpark(q.series, !down);
+    els.note.textContent = "SNAP · delayed quote · auto-refresh 60s";
+  }
+
+  async function refresh() {
+    els.refresh.disabled = true;
+    els.change.textContent = "Fetching quote…";
+    els.change.className = "change is-flat";
+    try {
+      const raw = await loadYahoo();
+      render(parseQuote(raw));
+    } catch (err) {
+      els.change.textContent = "Could not load quote";
+      els.change.className = "change is-down";
+      els.note.textContent = String(err.message || err);
+      console.error(err);
+    } finally {
+      els.refresh.disabled = false;
     }
-    for (let i = bubbles.length - 1; i >= 0; i--) {
-      const b = bubbles[i];
-      b.life -= dt;
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
-      // Rise against gravity
-      b.x -= gx * 25 * dt;
-      b.y -= gy * 35 * dt;
-      if (b.life <= 0 || b.y < surfaceY(b.x, g)) bubbles.splice(i, 1);
-    }
   }
 
-  function loop(ts) {
-    const dt = Math.min(0.033, (ts - last) / 1000 || 0.016);
-    last = ts;
-    update(dt);
-    draw();
-    requestAnimationFrame(loop);
-  }
-
-  resize();
-  window.addEventListener("resize", resize);
-  window.addEventListener("orientationchange", () => setTimeout(resize, 250));
-
-  window.addEventListener("pointerdown", onPointer);
-  window.addEventListener("pointermove", (e) => {
-    if (e.buttons) onPointer(e);
-  });
-  window.addEventListener("touchstart", onPointer, { passive: true });
-  window.addEventListener(
-    "touchmove",
-    (e) => {
-      e.preventDefault();
-      onPointer(e);
-    },
-    { passive: false }
-  );
-
-  enableBtn.addEventListener("click", enableMotion);
-
-  if (
-    !(
-      window.DeviceOrientationEvent &&
-      typeof window.DeviceOrientationEvent.requestPermission === "function"
-    )
-  ) {
-    window.addEventListener("deviceorientation", onOrientation, true);
-    window.addEventListener("devicemotion", onMotion, true);
-  }
-
-  // Idle sway only before sensors — still horizon-like
-  let demo = 0;
-  setInterval(() => {
-    if (usingSensors) return;
-    demo += 0.03;
-    setGravityDown(Math.sin(demo) * 0.2, 1);
-  }, 30);
-
-  statusEl.textContent = "Blue water · tap Enable motion to lock to horizon";
-  debugEl.textContent = "v4 · horizon-aligned surface";
-  requestAnimationFrame(loop);
+  els.refresh.addEventListener("click", refresh);
+  refresh();
+  setInterval(refresh, 60_000);
 })();
