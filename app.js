@@ -9,21 +9,18 @@
   let H = 0;
   let dpr = 1;
 
-  // Tilt in radians: 0 = flat surface, positive tips liquid to the right
-  let tilt = 0;
-  let targetTilt = 0;
-  // Forward/back tips amount of "slosh" toward top/bottom (subtle fill shift)
-  let pitch = 0;
-  let targetPitch = 0;
+  // Gravity "down" in screen space (x right, y down). Water surface ⊥ this.
+  let gx = 0;
+  let gy = 1;
+  let targetGx = 0;
+  let targetGy = 1;
 
   const FILL = 0.55;
   let phase = 0;
   let last = performance.now();
   let usingSensors = false;
-  let lastBeta = 0;
-  let lastGamma = 0;
 
-  /** @type {{x:number,y:number,r:number,vy:number,life:number}[]} */
+  /** @type {{x:number,y:number,r:number,vx:number,vy:number,life:number}[]} */
   const bubbles = [];
 
   function resize() {
@@ -50,30 +47,54 @@
     return (g.topW + (g.botW - g.topW) * t * t) / 2;
   }
 
+  function setGravityDown(x, y) {
+    const len = Math.hypot(x, y);
+    if (len < 0.05) {
+      targetGx = 0;
+      targetGy = 1;
+      return;
+    }
+    targetGx = x / len;
+    targetGy = y / len;
+    // Keep a little downward bias so the meniscus stays drawable
+    if (targetGy < 0.12) {
+      const n = Math.hypot(targetGx, 0.12);
+      targetGx /= n;
+      targetGy = 0.12 / n;
+    }
+  }
+
+  /**
+   * Map deviceorientation → screen gravity (y down).
+   * Water plane stays world-level (parallel to horizon).
+   */
   function applyOrientation(beta, gamma) {
     if (beta == null || gamma == null || Number.isNaN(beta) || Number.isNaN(gamma)) {
       return;
     }
-    lastBeta = beta;
-    lastGamma = gamma;
 
-    // Clamp
     let b = Math.max(-90, Math.min(90, beta));
     let g = Math.max(-90, Math.min(90, gamma));
+    const radB = (b * Math.PI) / 180;
+    const radG = (g * Math.PI) / 180;
 
-    // Held upright: beta~90. Left/right tip = gamma.
-    // Convert gamma degrees to surface tilt (strong response).
-    targetTilt = (g / 45) * 0.65; // ~±0.65 rad (~37°)
-    targetTilt = Math.max(-0.85, Math.min(0.85, targetTilt));
-
-    // Pitch away from upright adds vertical slosh
-    targetPitch = ((90 - b) / 60) * 0.12;
-    targetPitch = Math.max(-0.2, Math.min(0.25, targetPitch));
+    // Unit gravity in device coords (W3C-style), then into screen x-right / y-down
+    const dx = Math.sin(radG); // device +X (right)
+    const dy = -Math.cos(radG) * Math.sin(radB); // device +Y (up of phone)
+    // screen: x = device x, y = -device y  (screen y grows downward)
+    setGravityDown(dx, -dy);
 
     usingSensors = true;
-    statusEl.textContent = "Tilt left / right — blue water moves";
+    const horizonDeg = (Math.atan2(targetGx, targetGy) * 180) / Math.PI;
+    statusEl.textContent = "Water stays level with the horizon";
     debugEl.textContent =
-      "beta " + b.toFixed(0) + "° · gamma " + g.toFixed(0) + "° · tilt " + (targetTilt * 57.3).toFixed(0) + "°";
+      "β " +
+      b.toFixed(0) +
+      "° γ " +
+      g.toFixed(0) +
+      "° · horizon " +
+      horizonDeg.toFixed(0) +
+      "°";
   }
 
   function onOrientation(e) {
@@ -81,28 +102,38 @@
   }
 
   function onMotion(e) {
-    // Fallback if orientation is missing: derive from gravity accel
-    if (usingSensors && Math.abs(lastGamma) + Math.abs(lastBeta) > 1) return;
     const a = e.accelerationIncludingGravity;
-    if (!a || a.x == null) return;
-    // Portrait: x is left-right
-    const gammaApprox = Math.max(-90, Math.min(90, (-a.x / 9.8) * 90));
-    const betaApprox = Math.max(-90, Math.min(90, ((-a.y / 9.8) * 90 + 90)));
-    applyOrientation(betaApprox, gammaApprox);
+    if (!a || a.x == null || a.y == null) return;
+
+    // Prefer raw gravity vector when available (most accurate horizon)
+    // Device: +x right, +y up. Screen y-down ⇒ (ax, -ay)
+    const sx = a.x;
+    const sy = -(a.y);
+    setGravityDown(sx, sy);
+    usingSensors = true;
+
+    const horizonDeg = (Math.atan2(targetGx, targetGy) * 180) / Math.PI;
+    statusEl.textContent = "Water stays level with the horizon";
     debugEl.textContent =
-      "accel x " + (a.x || 0).toFixed(1) + " y " + (a.y || 0).toFixed(1);
+      "g " +
+      sx.toFixed(1) +
+      "," +
+      sy.toFixed(1) +
+      " · horizon " +
+      horizonDeg.toFixed(0) +
+      "°";
   }
 
   function onPointer(e) {
+    if (usingSensors) return; // sensors own the horizon lock
     const t = e.touches && e.touches[0] ? e.touches[0] : e;
     if (t.clientX == null) return;
-    // Always allow manual tip (helps when sensors fail)
-    const nx = t.clientX / W - 0.5;
-    targetTilt = Math.max(-0.85, Math.min(0.85, nx * 1.8));
-    if (!usingSensors) {
-      statusEl.textContent = "Dragging works · also tap Enable motion";
-      debugEl.textContent = "manual tilt " + (targetTilt * 57.3).toFixed(0) + "°";
-    }
+    const nx = (t.clientX / W - 0.5) * 2;
+    const ny = 0.75;
+    setGravityDown(nx, ny);
+    statusEl.textContent = "Drag tips the horizon · Enable motion for real level";
+    debugEl.textContent =
+      "manual horizon " + ((Math.atan2(targetGx, targetGy) * 180) / Math.PI).toFixed(0) + "°";
   }
 
   async function enableMotion() {
@@ -113,7 +144,7 @@
       if (DOE && typeof DOE.requestPermission === "function") {
         const r = await DOE.requestPermission();
         if (r !== "granted") {
-          statusEl.textContent = "Denied — drag finger to tip water";
+          statusEl.textContent = "Denied — drag to tip instead";
           enableBtn.hidden = true;
           return;
         }
@@ -128,15 +159,7 @@
       window.addEventListener("deviceorientation", onOrientation, true);
       window.addEventListener("devicemotion", onMotion, true);
       enableBtn.hidden = true;
-      statusEl.textContent = "Permission on — tilt the phone now";
-      // Nudge so user sees immediate movement
-      targetTilt = 0.25;
-      setTimeout(() => {
-        targetTilt = -0.25;
-      }, 280);
-      setTimeout(() => {
-        if (!usingSensors) targetTilt = 0;
-      }, 600);
+      statusEl.textContent = "Sensors on — water locks to the horizon";
     } catch (err) {
       statusEl.textContent = "Sensors blocked — drag to tip";
       debugEl.textContent = String(err && err.message ? err.message : err);
@@ -144,12 +167,15 @@
     }
   }
 
+  /** Horizon-aligned free surface: plane ⟂ gravity = fill constant */
   function surfaceY(x, g) {
-    const mid = g.bottom - g.h * (FILL - pitch);
-    const slope = Math.tan(tilt);
-    let y = mid + (x - g.cx) * slope;
-    y += Math.sin(phase + x * 0.04) * 5;
-    y += Math.sin(phase * 1.7 + x * 0.02) * 3;
+    const y0 = g.bottom - g.h * FILL;
+    const denom = Math.max(0.2, gy);
+    let y = y0 - ((x - g.cx) * gx) / denom;
+    // Soft ripples only — keep the mean surface horizon-true
+    const along = (x - g.cx) * gy - (y0 - g.cx) * 0; // distance along surface-ish
+    y += Math.sin(phase + along * 0.035) * 2.2;
+    y += Math.sin(phase * 1.5 + x * 0.02) * 1.2;
     return y;
   }
 
@@ -171,7 +197,6 @@
   }
 
   function draw() {
-    // Background
     const bg = ctx.createLinearGradient(0, 0, 0, H);
     bg.addColorStop(0, "#0b1a28");
     bg.addColorStop(1, "#050b12");
@@ -180,21 +205,20 @@
 
     const g = glass();
 
-    // Empty glass fill so shape is always obvious
     ctx.save();
     pathGlass(g);
     ctx.fillStyle = "rgba(180, 220, 255, 0.08)";
     ctx.fill();
     ctx.restore();
 
-    // Blue liquid
+    // Blue liquid under horizon plane
     ctx.save();
     pathGlass(g);
     ctx.clip();
 
     const left = g.cx - g.topW / 2 - 20;
     const right = g.cx + g.topW / 2 + 20;
-    const steps = 64;
+    const steps = 72;
     ctx.beginPath();
     for (let i = 0; i <= steps; i++) {
       const x = left + ((right - left) * i) / steps;
@@ -202,11 +226,33 @@
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    ctx.lineTo(right, g.bottom + 100);
-    ctx.lineTo(left, g.bottom + 100);
+    // Fill "downhill" relative to gravity (below the horizon plane)
+    ctx.lineTo(g.cx + gx * 800 + 400, g.cy + gy * 800);
+    // Use bottom corners as stable anchors
+    ctx.lineTo(right + 80, g.bottom + 120);
+    ctx.lineTo(left - 80, g.bottom + 120);
     ctx.closePath();
 
-    const water = ctx.createLinearGradient(g.cx, g.top, g.cx + tilt * 80, g.bottom);
+    // Actually rebuild fill more carefully: extend surface then go in gravity direction
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const x = left + ((right - left) * i) / steps;
+      const y = surfaceY(x, g);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    // Step along +gravity from right and left ends deep into the liquid
+    const deep = H * 1.2;
+    ctx.lineTo(right + gx * deep, surfaceY(right, g) + gy * deep);
+    ctx.lineTo(left + gx * deep, surfaceY(left, g) + gy * deep);
+    ctx.closePath();
+
+    const water = ctx.createLinearGradient(
+      g.cx - gx * 100,
+      g.top,
+      g.cx + gx * 40,
+      g.bottom
+    );
     water.addColorStop(0, "#7ad0ff");
     water.addColorStop(0.35, "#2f9de0");
     water.addColorStop(0.7, "#1a6fbf");
@@ -214,7 +260,7 @@
     ctx.fillStyle = water;
     ctx.fill();
 
-    // Surface line
+    // Horizon line (water surface)
     ctx.beginPath();
     for (let i = 0; i <= steps; i++) {
       const x = left + ((right - left) * i) / steps;
@@ -222,11 +268,10 @@
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = "rgba(220, 245, 255, 0.85)";
+    ctx.strokeStyle = "rgba(230, 248, 255, 0.9)";
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    // Bubbles
     for (const b of bubbles) {
       ctx.beginPath();
       ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
@@ -235,7 +280,6 @@
     }
     ctx.restore();
 
-    // Glass outline — thick so it's impossible to miss
     ctx.save();
     pathGlass(g);
     ctx.strokeStyle = "rgba(210, 235, 255, 0.55)";
@@ -243,7 +287,6 @@
     ctx.stroke();
     ctx.restore();
 
-    // Specular edge
     ctx.beginPath();
     for (let i = 0; i <= 28; i++) {
       const y = g.top + (g.h * i) / 28;
@@ -255,14 +298,12 @@
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    // Rim
     ctx.beginPath();
     ctx.ellipse(g.cx, g.top + 4, g.topW / 2, 12, 0, 0, Math.PI * 2);
     ctx.strokeStyle = "rgba(230,245,255,0.7)";
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    // Base
     ctx.beginPath();
     ctx.ellipse(g.cx, g.bottom + 8, g.botW / 2 + 14, 11, 0, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(0,0,0,0.45)";
@@ -270,25 +311,35 @@
   }
 
   function update(dt) {
-    tilt += (targetTilt - tilt) * Math.min(1, dt * 8);
-    pitch += (targetPitch - pitch) * Math.min(1, dt * 6);
-    phase += dt * (2.2 + Math.abs(tilt) * 6);
+    // Snappy tracking so horizon feels locked
+    gx += (targetGx - gx) * Math.min(1, dt * 12);
+    gy += (targetGy - gy) * Math.min(1, dt * 12);
+    const len = Math.hypot(gx, gy) || 1;
+    gx /= len;
+    gy /= len;
+
+    phase += dt * 1.6;
 
     const g = glass();
-    if (Math.random() < dt * 2) {
-      const y = g.top + g.h * (0.45 + Math.random() * 0.4);
+    if (Math.random() < dt * 1.8) {
+      const y = g.top + g.h * (0.5 + Math.random() * 0.35);
       bubbles.push({
         x: g.cx + (Math.random() - 0.5) * halfAt(y, g),
         y,
         r: 1.5 + Math.random() * 3,
-        vy: -30 - Math.random() * 40,
+        vx: -gx * 20,
+        vy: -gy * 40 - 10,
         life: 2,
       });
     }
     for (let i = bubbles.length - 1; i >= 0; i--) {
       const b = bubbles[i];
       b.life -= dt;
+      b.x += b.vx * dt;
       b.y += b.vy * dt;
+      // Rise against gravity
+      b.x -= gx * 25 * dt;
+      b.y -= gy * 35 * dt;
       if (b.life <= 0 || b.y < surfaceY(b.x, g)) bubbles.splice(i, 1);
     }
   }
@@ -305,18 +356,11 @@
   window.addEventListener("resize", resize);
   window.addEventListener("orientationchange", () => setTimeout(resize, 250));
 
-  // Manual tip always available
   window.addEventListener("pointerdown", onPointer);
   window.addEventListener("pointermove", (e) => {
     if (e.buttons) onPointer(e);
   });
-  window.addEventListener(
-    "touchstart",
-    (e) => {
-      onPointer(e);
-    },
-    { passive: true }
-  );
+  window.addEventListener("touchstart", onPointer, { passive: true });
   window.addEventListener(
     "touchmove",
     (e) => {
@@ -328,7 +372,6 @@
 
   enableBtn.addEventListener("click", enableMotion);
 
-  // Non-iOS: listen immediately too
   if (
     !(
       window.DeviceOrientationEvent &&
@@ -339,15 +382,15 @@
     window.addEventListener("devicemotion", onMotion, true);
   }
 
-  // Idle demo so something always moves even with no input
+  // Idle sway only before sensors — still horizon-like
   let demo = 0;
   setInterval(() => {
     if (usingSensors) return;
-    demo += 0.04;
-    targetTilt = Math.sin(demo) * 0.28;
+    demo += 0.03;
+    setGravityDown(Math.sin(demo) * 0.2, 1);
   }, 30);
 
-  statusEl.textContent = "You should see blue water now · tap Enable motion";
-  debugEl.textContent = "v3 · drag screen if sensors fail";
+  statusEl.textContent = "Blue water · tap Enable motion to lock to horizon";
+  debugEl.textContent = "v4 · horizon-aligned surface";
   requestAnimationFrame(loop);
 })();
