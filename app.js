@@ -290,7 +290,21 @@
     if (els.slideNow) {
       const shown = sliderPrice != null ? sliderPrice : livePrice;
       els.slideNow.textContent = shown == null ? "" : slimPrice(shown);
+      positionBubble();
     }
+  }
+
+  function positionBubble() {
+    const slider = els.slider;
+    const bubble = els.slideNow;
+    if (!slider || !bubble) return;
+    const min = Number(slider.min);
+    const max = Number(slider.max);
+    const val = Number(slider.value);
+    const pct = max === min ? 0 : (val - min) / (max - min);
+    const thumb = 28;
+    const x = pct * (slider.clientWidth - thumb) + thumb / 2;
+    bubble.style.left = x + "px";
   }
 
   async function refresh() {
@@ -315,7 +329,10 @@
       console.error(err);
     } finally {
       const wait = initial ? Math.max(0, 700 - (Date.now() - started)) : 0;
-      window.setTimeout(() => document.body.classList.add("is-ready"), wait);
+      window.setTimeout(() => {
+        document.body.classList.add("is-ready");
+        positionBubble();
+      }, wait);
     }
   }
 
@@ -360,6 +377,7 @@
     sliderPrice = Number(els.slider.value);
     render();
   });
+  window.addEventListener("resize", positionBubble);
 
   render();
 
