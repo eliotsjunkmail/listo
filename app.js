@@ -23,6 +23,8 @@
     distribution: document.getElementById("distribution"),
     slider: document.getElementById("price-slider"),
     slideNow: document.getElementById("slide-now"),
+    market: document.getElementById("market"),
+    marketLabel: document.getElementById("market-label"),
   };
 
   const SLIDER_MAX = 26.37;
@@ -151,6 +153,36 @@
       minute: "2-digit",
       timeZone: "America/New_York",
     });
+  }
+
+  /** NYSE regular session: Mon–Fri 9:30–16:00 America/New_York */
+  function isNyseOpen(now = new Date()) {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      weekday: "short",
+      hour: "numeric",
+      minute: "numeric",
+      hour12: false,
+    }).formatToParts(now);
+    const get = (type) => parts.find((p) => p.type === type)?.value;
+    const weekday = get("weekday");
+    if (weekday === "Sat" || weekday === "Sun") return false;
+    let hour = Number(get("hour"));
+    const minute = Number(get("minute"));
+    // Some engines emit "24" for midnight
+    if (hour === 24) hour = 0;
+    const mins = hour * 60 + minute;
+    return mins >= 9 * 60 + 30 && mins < 16 * 60;
+  }
+
+  function updateMarketBadge() {
+    const open = isNyseOpen();
+    if (!els.market || !els.marketLabel) return open;
+    els.market.classList.toggle("is-open", open);
+    els.market.classList.toggle("is-closed", !open);
+    els.marketLabel.textContent = open ? "NYSE open" : "NYSE closed";
+    els.market.setAttribute("aria-label", open ? "NYSE is open" : "NYSE is closed");
+    return open;
   }
 
   function yahooUrl(symbol) {
@@ -393,6 +425,11 @@
     if (e.key === "Escape" && !els.scrim.hidden) closeSettings(true);
   });
 
+  updateMarketBadge();
   refresh();
-  setInterval(refresh, 60_000);
+
+  setInterval(() => {
+    const open = updateMarketBadge();
+    if (open) refresh();
+  }, 60_000);
 })();
