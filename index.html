@@ -11,10 +11,17 @@
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=9" />
+    <link rel="stylesheet" href="styles.css?v=10" />
   </head>
   <body>
     <div class="fill" id="fill" aria-hidden="true"></div>
+
+    <main class="stage" aria-live="polite">
+      <p class="value" id="value">—</p>
+      <p class="pct" id="pct"></p>
+    </main>
+
+    <p class="story" id="story"></p>
 
     <button type="button" class="gear" id="gear" aria-label="Settings">
       <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true">
@@ -24,12 +31,6 @@
         />
       </svg>
     </button>
-
-    <main class="stage" aria-live="polite">
-      <p class="value" id="value">—</p>
-      <p class="pct" id="pct"></p>
-      <p class="need" id="need"></p>
-    </main>
 
     <div class="scrim" id="scrim" hidden>
       <form class="panel" id="panel">
@@ -54,6 +55,6 @@
       </form>
     </div>
 
-    <script src="app.js?v=9"></script>
+    <script src="app.js?v=10"></script>
   </body>
 </html>

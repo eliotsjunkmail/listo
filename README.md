@@ -12,4 +12,4 @@ Defaults:
 
 ## Open
 
-https://eliotsjunkmail.github.io/listo/?v=9
+https://eliotsjunkmail.github.io/listo/?v=10

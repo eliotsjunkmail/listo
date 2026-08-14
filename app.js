@@ -11,7 +11,7 @@
     fill: document.getElementById("fill"),
     value: document.getElementById("value"),
     pct: document.getElementById("pct"),
-    need: document.getElementById("need"),
+    story: document.getElementById("story"),
     gear: document.getElementById("gear"),
     scrim: document.getElementById("scrim"),
     panel: document.getElementById("panel"),
@@ -21,7 +21,7 @@
     target: document.getElementById("target"),
   };
 
-  /** @type {{price:number|null}|null} */
+  /** @type {{symbol?:string, price:number|null, change:number|null, time:Date|null}|null} */
   let quote = null;
 
   function loadSettings() {
@@ -74,15 +74,21 @@
     );
   }
 
-  function sharePrice(n) {
+  function slimPrice(n) {
     if (n == null || Number.isNaN(n) || !Number.isFinite(n)) return "—";
-    return (
-      "$" +
-      n.toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })
-    );
+    const abs = Math.abs(n);
+    const formatted = abs.toFixed(abs >= 10 ? 2 : 2).replace(/\.?0+$/, "");
+    const body = formatted.includes(".") ? formatted : abs.toFixed(1);
+    return (n < 0 ? "−" : "") + body;
+  }
+
+  function clock(date) {
+    if (!date) return "";
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "America/New_York",
+    });
   }
 
   function yahooUrl(symbol) {
@@ -133,7 +139,14 @@
     const quoteData = result.indicators?.quote?.[0] || {};
     const closes = (quoteData.close || []).filter((v) => v != null);
     const price = meta.regularMarketPrice ?? closes[closes.length - 1];
-    return { symbol: meta.symbol, price };
+    const prev = meta.chartPreviousClose ?? meta.previousClose;
+    const change = price != null && prev != null ? price - prev : null;
+    return {
+      symbol: meta.symbol,
+      price,
+      change,
+      time: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000) : new Date(),
+    };
   }
 
   function render() {
@@ -148,12 +161,43 @@
     els.value.textContent = compactMoney(value);
     els.pct.textContent = value == null ? "" : Math.round(pct) + "%";
 
-    if (goalPrice == null) {
-      els.need.textContent = "";
-    } else if (neededFromStock <= 0) {
-      els.need.textContent = "Target covered";
+    if (!quote || quote.price == null) {
+      els.story.textContent = "Fetching " + symbol + "…";
     } else {
-      els.need.textContent = sharePrice(goalPrice) + " " + symbol;
+      const direction =
+        (quote.change ?? 0) > 0.004 ? "up" : (quote.change ?? 0) < -0.004 ? "down" : "unchanged";
+      const move =
+        quote.change == null
+          ? ""
+          : direction === "unchanged"
+            ? "flat"
+            : (direction === "up" ? "up " : "down ") + slimPrice(Math.abs(quote.change));
+      const asOf = quote.time ? " as of " + clock(quote.time) : "";
+      const first =
+        symbol +
+        " is " +
+        direction +
+        ". Trading at " +
+        slimPrice(quote.price) +
+        (move ? ", " + move + " for today" : "") +
+        asOf +
+        ".";
+      let second;
+      if (goalPrice == null) {
+        second = "";
+      } else if (neededFromStock <= 0) {
+        second = " You've already reached your target of " + compactMoney(target).replace("$", "") + ".";
+      } else {
+        second =
+          " When " +
+          symbol +
+          " gets to " +
+          slimPrice(goalPrice) +
+          " you will reach your target of " +
+          compactMoney(target).replace("$", "") +
+          ".";
+      }
+      els.story.textContent = first + second;
     }
 
     els.fill.style.height = pct + "%";
@@ -173,7 +217,7 @@
       }
       render();
     } catch (err) {
-      els.pct.textContent = "quote failed";
+      els.story.textContent = "Could not load quote";
       console.error(err);
     }
   }
