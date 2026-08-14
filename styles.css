@@ -44,15 +44,15 @@ body {
 
 .gear {
   position: fixed;
-  top: max(0.7rem, env(safe-area-inset-top));
-  right: max(0.7rem, env(safe-area-inset-right));
+  top: max(0.55rem, env(safe-area-inset-top));
+  right: max(0.55rem, env(safe-area-inset-right));
   z-index: 3;
-  width: 44px;
-  height: 44px;
+  width: 72px;
+  height: 72px;
   border: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(246, 246, 242, 0.85);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(246, 246, 242, 0.92);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -88,6 +88,14 @@ body {
   font-weight: 500;
   letter-spacing: 0.04em;
   opacity: 0.72;
+}
+
+.need {
+  margin: 0.85rem 0 0;
+  font-size: clamp(1.05rem, 3.6vw, 1.45rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  opacity: 0.8;
 }
 
 .scrim {

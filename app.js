@@ -1,16 +1,23 @@
 (() => {
-  const STORAGE_KEY = "holdings-v1";
-  const DEFAULTS = { symbol: "SNAP", shares: 130000, target: 2000000 };
+  const STORAGE_KEY = "holdings-v2";
+  const DEFAULTS = {
+    symbol: "SNAP",
+    shares: 130000,
+    assets: 3530000,
+    target: 5000000,
+  };
 
   const els = {
     fill: document.getElementById("fill"),
     value: document.getElementById("value"),
     pct: document.getElementById("pct"),
+    need: document.getElementById("need"),
     gear: document.getElementById("gear"),
     scrim: document.getElementById("scrim"),
     panel: document.getElementById("panel"),
     symbol: document.getElementById("symbol"),
     shares: document.getElementById("shares"),
+    assets: document.getElementById("assets"),
     target: document.getElementById("target"),
   };
 
@@ -25,6 +32,7 @@
       return {
         symbol: String(parsed.symbol || DEFAULTS.symbol).toUpperCase(),
         shares: Number(parsed.shares) > 0 ? Number(parsed.shares) : DEFAULTS.shares,
+        assets: Number(parsed.assets) >= 0 ? Number(parsed.assets) : DEFAULTS.assets,
         target: Number(parsed.target) > 0 ? Number(parsed.target) : DEFAULTS.target,
       };
     } catch {
@@ -36,6 +44,7 @@
     return {
       symbol: (els.symbol.value || DEFAULTS.symbol).trim().toUpperCase() || DEFAULTS.symbol,
       shares: Math.max(0, Number(els.shares.value) || 0),
+      assets: Math.max(0, Number(els.assets.value) || 0),
       target: Math.max(1, Number(els.target.value) || DEFAULTS.target),
     };
   }
@@ -62,6 +71,17 @@
       sign +
       "$" +
       Math.round(abs).toLocaleString("en-US")
+    );
+  }
+
+  function sharePrice(n) {
+    if (n == null || Number.isNaN(n) || !Number.isFinite(n)) return "—";
+    return (
+      "$" +
+      n.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
     );
   }
 
@@ -117,13 +137,25 @@
   }
 
   function render() {
-    const { shares, target } = loadSettings();
+    const { shares, assets, target, symbol } = loadSettings();
     const price = quote?.price ?? null;
-    const value = price != null ? price * shares : null;
+    const stockValue = price != null ? price * shares : null;
+    const value = stockValue != null ? stockValue + assets : null;
     const pct = value != null && target > 0 ? Math.min(100, (value / target) * 100) : 0;
+    const neededFromStock = target - assets;
+    const goalPrice = shares > 0 ? neededFromStock / shares : null;
 
     els.value.textContent = compactMoney(value);
     els.pct.textContent = value == null ? "" : Math.round(pct) + "%";
+
+    if (goalPrice == null) {
+      els.need.textContent = "";
+    } else if (neededFromStock <= 0) {
+      els.need.textContent = "Target covered";
+    } else {
+      els.need.textContent = sharePrice(goalPrice) + " " + symbol;
+    }
+
     els.fill.style.height = pct + "%";
     els.fill.classList.toggle("is-done", pct >= 100);
     document.title = compactMoney(value);
@@ -150,6 +182,7 @@
     const cfg = loadSettings();
     els.symbol.value = cfg.symbol;
     els.shares.value = String(cfg.shares);
+    els.assets.value = String(cfg.assets);
     els.target.value = String(cfg.target);
     els.scrim.hidden = false;
     els.symbol.focus();
@@ -169,6 +202,7 @@
   const saved = loadSettings();
   els.symbol.value = saved.symbol;
   els.shares.value = String(saved.shares);
+  els.assets.value = String(saved.assets);
   els.target.value = String(saved.target);
   render();
 

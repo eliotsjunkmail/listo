@@ -1,11 +1,15 @@
 # Holdings
 
-A minimal screen: one dollar figure, a percentage, and a full-height fill toward a target.
+A minimal screen: total dollars, percent of target, and the share price needed to hit the goal. The yellow fill rises with progress.
 
-Tap the settings icon (top right) to edit symbol, shares, and target.
+Tap the settings icon (top right) to edit symbol, shares, additional assets, and target.
 
-Defaults: SNAP × 130,000 shares toward $2,000,000.
+Defaults:
+
+- SNAP × 130,000 shares
+- Additional assets: $3,530,000
+- Target: $5,000,000
 
 ## Open
 
-https://eliotsjunkmail.github.io/listo/?v=8
+https://eliotsjunkmail.github.io/listo/?v=9
