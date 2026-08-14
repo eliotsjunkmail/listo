@@ -81,7 +81,7 @@ body {
 }
 
 .value,
-.pct {
+.dist {
   color: #111;
 }
 
@@ -93,7 +93,7 @@ body {
   line-height: 0.9;
 }
 
-.pct {
+.dist {
   margin: 0.55rem 0 0;
   font-size: clamp(1.1rem, 4vw, 1.6rem);
   font-weight: 700;

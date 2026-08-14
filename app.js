@@ -5,12 +5,13 @@
     shares: 130000,
     assets: 3530000,
     target: 5000000,
+    distribution: 0.04,
   };
 
   const els = {
     fill: document.getElementById("fill"),
     value: document.getElementById("value"),
-    pct: document.getElementById("pct"),
+    dist: document.getElementById("dist"),
     story: document.getElementById("story"),
     gear: document.getElementById("gear"),
     scrim: document.getElementById("scrim"),
@@ -19,6 +20,7 @@
     shares: document.getElementById("shares"),
     assets: document.getElementById("assets"),
     target: document.getElementById("target"),
+    distribution: document.getElementById("distribution"),
   };
 
   /** @type {{symbol?:string, price:number|null, change:number|null, time:Date|null}|null} */
@@ -34,6 +36,7 @@
         shares: Number(parsed.shares) > 0 ? Number(parsed.shares) : DEFAULTS.shares,
         assets: Number(parsed.assets) >= 0 ? Number(parsed.assets) : DEFAULTS.assets,
         target: Number(parsed.target) > 0 ? Number(parsed.target) : DEFAULTS.target,
+        distribution: normalizeRate(parsed.distribution),
       };
     } catch {
       return { ...DEFAULTS };
@@ -46,7 +49,15 @@
       shares: Math.max(0, Number(els.shares.value) || 0),
       assets: Math.max(0, Number(els.assets.value) || 0),
       target: Math.max(1, Number(els.target.value) || DEFAULTS.target),
+      distribution: normalizeRate(els.distribution.value),
     };
+  }
+
+  function normalizeRate(raw) {
+    let n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) return DEFAULTS.distribution;
+    if (n > 1) n = n / 100;
+    return n;
   }
 
   function persist(cfg) {
@@ -64,7 +75,7 @@
     }
     if (abs >= 1e3) {
       const k = abs / 1e3;
-      const digits = k >= 100 ? 0 : k >= 10 ? 1 : 1;
+      const digits = k >= 100 ? 0 : 1;
       return sign + "$" + k.toFixed(digits).replace(/\.0$/, "") + "K";
     }
     return (
@@ -150,16 +161,17 @@
   }
 
   function render() {
-    const { shares, assets, target, symbol } = loadSettings();
+    const { shares, assets, target, symbol, distribution } = loadSettings();
     const price = quote?.price ?? null;
     const stockValue = price != null ? price * shares : null;
     const value = stockValue != null ? stockValue + assets : null;
     const pct = value != null && target > 0 ? Math.min(100, (value / target) * 100) : 0;
     const neededFromStock = target - assets;
     const goalPrice = shares > 0 ? neededFromStock / shares : null;
+    const yearly = value != null ? value * distribution : null;
 
     els.value.textContent = compactMoney(value);
-    els.pct.textContent = value == null ? "" : Math.round(pct) + "%";
+    els.dist.textContent = yearly == null ? "" : compactMoney(yearly);
 
     if (!quote || quote.price == null) {
       els.story.textContent = "";
@@ -238,6 +250,7 @@
     els.shares.value = String(cfg.shares);
     els.assets.value = String(cfg.assets);
     els.target.value = String(cfg.target);
+    els.distribution.value = String(cfg.distribution);
     els.scrim.hidden = false;
     els.symbol.focus();
   }
@@ -258,6 +271,7 @@
   els.shares.value = String(saved.shares);
   els.assets.value = String(saved.assets);
   els.target.value = String(saved.target);
+  els.distribution.value = String(saved.distribution);
   render();
 
   els.gear.addEventListener("click", openSettings);

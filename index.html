@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=12" />
+    <link rel="stylesheet" href="styles.css?v=13" />
   </head>
   <body>
     <div class="fill" id="fill" aria-hidden="true"></div>
@@ -20,7 +20,7 @@
       <div class="spinner" id="spinner" role="status" aria-label="Loading quote"></div>
       <div class="figures" id="figures">
         <p class="value" id="value">—</p>
-        <p class="pct" id="pct"></p>
+        <p class="dist" id="dist"></p>
         <p class="story" id="story"></p>
       </div>
     </main>
@@ -53,10 +53,14 @@
           Target ($)
           <input id="target" type="number" min="1" step="1" />
         </label>
+        <label>
+          Allowable distribution / year
+          <input id="distribution" type="number" min="0" max="1" step="0.01" />
+        </label>
         <button type="submit" class="done">Done</button>
       </form>
     </div>
 
-    <script src="app.js?v=12"></script>
+    <script src="app.js?v=13"></script>
   </body>
 </html>
