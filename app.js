@@ -219,21 +219,9 @@
     const left = g.cx - g.topW / 2 - 20;
     const right = g.cx + g.topW / 2 + 20;
     const steps = 72;
-    ctx.beginPath();
-    for (let i = 0; i <= steps; i++) {
-      const x = left + ((right - left) * i) / steps;
-      const y = surfaceY(x, g);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    // Fill "downhill" relative to gravity (below the horizon plane)
-    ctx.lineTo(g.cx + gx * 800 + 400, g.cy + gy * 800);
-    // Use bottom corners as stable anchors
-    ctx.lineTo(right + 80, g.bottom + 120);
-    ctx.lineTo(left - 80, g.bottom + 120);
-    ctx.closePath();
+    const deep = H * 1.25;
 
-    // Actually rebuild fill more carefully: extend surface then go in gravity direction
+    // Fill below the horizon plane (surface ⊥ gravity)
     ctx.beginPath();
     for (let i = 0; i <= steps; i++) {
       const x = left + ((right - left) * i) / steps;
@@ -241,8 +229,6 @@
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    // Step along +gravity from right and left ends deep into the liquid
-    const deep = H * 1.2;
     ctx.lineTo(right + gx * deep, surfaceY(right, g) + gy * deep);
     ctx.lineTo(left + gx * deep, surfaceY(left, g) + gy * deep);
     ctx.closePath();
