@@ -81,8 +81,14 @@ body {
 }
 
 .value,
-.dist {
+.dist,
+.story,
+.slide-bubble,
+.slide-scale {
   color: #111;
+  -webkit-text-stroke: 4px #fff;
+  paint-order: stroke fill;
+  text-shadow: 0 0 10px #fff, 0 1px 0 #fff;
 }
 
 .value {
@@ -91,6 +97,8 @@ body {
   font-weight: 700;
   letter-spacing: -0.06em;
   line-height: 0.9;
+  -webkit-text-stroke-width: 7px;
+  text-shadow: 0 0 16px #fff, 0 0 28px #fff;
 }
 
 .dist {
@@ -98,6 +106,7 @@ body {
   font-size: clamp(1.1rem, 4vw, 1.6rem);
   font-weight: 700;
   letter-spacing: 0.04em;
+  -webkit-text-stroke-width: 5px;
 }
 
 .story {
@@ -105,12 +114,16 @@ body {
   font-size: 0.9rem;
   font-weight: 500;
   line-height: 1.45;
-  color: #111;
   max-width: 20rem;
+  -webkit-text-stroke-width: 3px;
 }
 
 .story strong {
   font-weight: 700;
+}
+
+.slide-bubble {
+  -webkit-text-stroke-width: 4px;
 }
 
 .slide-dock {
