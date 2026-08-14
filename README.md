@@ -1,4 +1,4 @@
-# Listo
+# Listy
 
 A simple browser to-do list app. Add tasks, mark them done, filter the list, and clear completed items. Everything is saved in `localStorage`.
 

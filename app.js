@@ -1,4 +1,4 @@
-const STORAGE_KEY = "listo-todos-v1";
+const STORAGE_KEY = "listy-todos-v1";
 
 /** @typedef {{ id: string, text: string, done: boolean, createdAt: number }} Todo */
 
