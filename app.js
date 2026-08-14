@@ -10,16 +10,77 @@
   const scoreEl = document.getElementById("score");
   const livesEl = document.getElementById("lives");
   const levelEl = document.getElementById("level");
+  const diffLabelEl = document.getElementById("diff-label");
   const overlay = document.getElementById("overlay");
   const overlayTitle = document.getElementById("overlay-title");
   const overlayCopy = document.getElementById("overlay-copy");
   const startBtn = document.getElementById("start-btn");
+  const diffButtons = document.querySelectorAll(".diff-btn");
+
+  /** Difficulty 5 = current/original hardest settings */
+  const DIFFICULTIES = {
+    1: {
+      name: "Easy",
+      speed: 0.42,
+      gap: 1.55,
+      lives: 5,
+      roadLanes: 3,
+      dive: false,
+      levelRamp: 0.08,
+    },
+    2: {
+      name: "Normal",
+      speed: 0.55,
+      gap: 1.35,
+      lives: 4,
+      roadLanes: 4,
+      dive: true,
+      diveSurface: 4.2,
+      diveUnder: 0.7,
+      levelRamp: 0.1,
+    },
+    3: {
+      name: "Hard",
+      speed: 0.72,
+      gap: 1.18,
+      lives: 3,
+      roadLanes: 5,
+      dive: true,
+      diveSurface: 3.6,
+      diveUnder: 1.0,
+      levelRamp: 0.14,
+    },
+    4: {
+      name: "Expert",
+      speed: 0.86,
+      gap: 1.08,
+      lives: 3,
+      roadLanes: 5,
+      dive: true,
+      diveSurface: 3.4,
+      diveUnder: 1.15,
+      levelRamp: 0.16,
+    },
+    5: {
+      name: "Insane",
+      speed: 1,
+      gap: 1,
+      lives: 3,
+      roadLanes: 5,
+      dive: true,
+      diveSurface: 3.6,
+      diveUnder: 1.2,
+      levelRamp: 0.18,
+    },
+  };
 
   /** @type {"title" | "playing" | "dead" | "win" | "over"} */
   let state = "title";
   let score = 0;
   let lives = 3;
   let level = 1;
+  /** @type {1 | 2 | 3 | 4 | 5} */
+  let difficulty = 5;
   let homes = [false, false, false, false, false];
   let frog = createFrog();
   /** @type {Hazard[]} */
@@ -28,6 +89,10 @@
   let animId = 0;
   let deathTimer = 0;
   let hopCooldown = 0;
+
+  function currentDiff() {
+    return DIFFICULTIES[difficulty];
+  }
 
   /**
    * @typedef {{
@@ -55,18 +120,25 @@
   }
 
   function buildHazards() {
-    const speedBoost = 1 + (level - 1) * 0.18;
+    const diff = currentDiff();
+    const speedBoost = (1 + (level - 1) * diff.levelRamp) * diff.speed;
+    const gapBoost = diff.gap;
     /** @type {Hazard[]} */
     const list = [];
 
-    // Road (rows 8–11): cars
-    const road = [
-      { row: 11, speed: 55 * speedBoost, w: 48, gap: 110, color: "#d64545", dir: 1 },
-      { row: 10, speed: -70 * speedBoost, w: 56, gap: 130, color: "#c0c4c8", dir: -1 },
-      { row: 9, speed: 85 * speedBoost, w: 40, gap: 100, color: "#4aa3ff", dir: 1 },
-      { row: 8, speed: -60 * speedBoost, w: 70, gap: 150, color: "#f0a020", dir: -1 },
-      { row: 7, speed: 48 * speedBoost, w: 52, gap: 125, color: "#2aa5a5", dir: 1 },
+    // Road lanes (hardest uses all 5; easier drops lower-traffic lanes first)
+    const allRoad = [
+      { row: 11, speed: 55, w: 48, gap: 110, color: "#d64545", dir: 1 },
+      { row: 10, speed: -70, w: 56, gap: 130, color: "#c0c4c8", dir: -1 },
+      { row: 9, speed: 85, w: 40, gap: 100, color: "#4aa3ff", dir: 1 },
+      { row: 8, speed: -60, w: 70, gap: 150, color: "#f0a020", dir: -1 },
+      { row: 7, speed: 48, w: 52, gap: 125, color: "#2aa5a5", dir: 1 },
     ];
+    const road = allRoad.slice(0, diff.roadLanes).map((lane) => ({
+      ...lane,
+      speed: lane.speed * speedBoost,
+      gap: lane.gap * gapBoost,
+    }));
 
     for (const lane of road) {
       const count = Math.ceil((WIDTH + lane.gap) / lane.gap);
@@ -83,13 +155,13 @@
       }
     }
 
-    // River (rows 1–5): logs & turtles
+    // River: logs & turtles
     const river = [
-      { row: 5, speed: 40 * speedBoost, w: 90, gap: 140, kind: "log", color: "#8b5a2b" },
-      { row: 4, speed: -50 * speedBoost, w: 70, gap: 120, kind: "turtle", color: "#3d8b6e" },
-      { row: 3, speed: 55 * speedBoost, w: 110, gap: 170, kind: "log", color: "#a06a35" },
-      { row: 2, speed: -45 * speedBoost, w: 80, gap: 130, kind: "turtle", color: "#2f7a5c" },
-      { row: 1, speed: 35 * speedBoost, w: 100, gap: 160, kind: "log", color: "#7a4a22" },
+      { row: 5, speed: 40 * speedBoost, w: 90, gap: 140 * gapBoost, kind: "log", color: "#8b5a2b" },
+      { row: 4, speed: -50 * speedBoost, w: 70, gap: 120 * gapBoost, kind: "turtle", color: "#3d8b6e" },
+      { row: 3, speed: 55 * speedBoost, w: 110, gap: 170 * gapBoost, kind: "log", color: "#a06a35" },
+      { row: 2, speed: -45 * speedBoost, w: 80, gap: 130 * gapBoost, kind: "turtle", color: "#2f7a5c" },
+      { row: 1, speed: 35 * speedBoost, w: 100, gap: 160 * gapBoost, kind: "log", color: "#7a4a22" },
     ];
 
     for (const lane of river) {
@@ -105,7 +177,7 @@
           kind: /** @type {"log" | "turtle"} */ (lane.kind),
           color: lane.color,
         };
-        if (lane.kind === "turtle") {
+        if (lane.kind === "turtle" && diff.dive) {
           h.dive = i * 1.4;
           h.submerged = false;
         }
@@ -124,7 +196,7 @@
   function startGame(full = true) {
     if (full) {
       score = 0;
-      lives = 3;
+      lives = currentDiff().lives;
       level = 1;
       homes = [false, false, false, false, false];
     }
@@ -142,6 +214,7 @@
     scoreEl.textContent = String(score);
     livesEl.textContent = String(lives);
     levelEl.textContent = String(level);
+    diffLabelEl.textContent = currentDiff().name;
   }
 
   function showOverlay(title, copy, btnLabel) {
@@ -149,6 +222,17 @@
     overlayCopy.textContent = copy;
     startBtn.textContent = btnLabel;
     overlay.hidden = false;
+    document.querySelector(".diff-picker").hidden = false;
+  }
+
+  function setDifficulty(value) {
+    const next = Number(value);
+    if (![1, 2, 3, 4, 5].includes(next)) return;
+    difficulty = /** @type {1 | 2 | 3 | 4 | 5} */ (next);
+    diffButtons.forEach((btn) => {
+      btn.classList.toggle("is-active", Number(btn.dataset.diff) === difficulty);
+    });
+    syncHud();
   }
 
   function moveFrog(dir) {
@@ -249,8 +333,12 @@
 
       if (h.kind === "turtle" && h.dive !== undefined) {
         h.dive += dt;
-        const cycle = h.dive % 5.5;
-        h.submerged = cycle > 3.6 && cycle < 4.8;
+        const diff = currentDiff();
+        const surface = diff.diveSurface ?? 3.6;
+        const under = diff.diveUnder ?? 1.2;
+        const cycleLen = surface + under;
+        const cycle = h.dive % cycleLen;
+        h.submerged = cycle > surface;
       }
     }
 

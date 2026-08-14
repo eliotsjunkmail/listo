@@ -22,6 +22,7 @@
           <span>Score <strong id="score">0</strong></span>
           <span>Lives <strong id="lives">3</strong></span>
           <span>Level <strong id="level">1</strong></span>
+          <span>Diff <strong id="diff-label">Insane</strong></span>
         </div>
       </header>
 
@@ -30,8 +31,15 @@
         <div id="overlay" class="overlay">
           <p class="overlay-title" id="overlay-title">Frogger</p>
           <p class="overlay-copy" id="overlay-copy">
-            Cross the road and river. Fill all five homes.
+            Pick a difficulty. Insane is the original hardest setting.
           </p>
+          <div class="diff-picker" role="group" aria-label="Difficulty">
+            <button type="button" class="diff-btn" data-diff="1">Easy</button>
+            <button type="button" class="diff-btn" data-diff="2">Normal</button>
+            <button type="button" class="diff-btn" data-diff="3">Hard</button>
+            <button type="button" class="diff-btn" data-diff="4">Expert</button>
+            <button type="button" class="diff-btn is-active" data-diff="5">Insane</button>
+          </div>
           <button type="button" id="start-btn" class="btn">Start</button>
         </div>
       </div>
