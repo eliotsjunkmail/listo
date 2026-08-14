@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=20" />
+    <link rel="stylesheet" href="styles.css?v=19" />
   </head>
   <body>
     <div class="fill" id="fill" aria-hidden="true"></div>
@@ -19,17 +19,15 @@
     <main class="stage" aria-live="polite">
       <div class="spinner" id="spinner" role="status" aria-label="Loading quote"></div>
       <div class="figures" id="figures">
-        <div class="headline">
-          <p class="value" id="value">—</p>
-          <p class="dist" id="dist"></p>
-        </div>
-        <p class="story halo" id="story"></p>
+        <p class="value" id="value">—</p>
+        <p class="dist" id="dist"></p>
+        <p class="story" id="story"></p>
       </div>
     </main>
 
     <div class="slide-dock" id="slide-dock">
       <div class="slide-wrap">
-        <div class="slide-bubble halo" id="slide-now"></div>
+        <div class="slide-bubble" id="slide-now"></div>
         <input
           id="price-slider"
           class="slider"
@@ -40,7 +38,7 @@
           value="0"
           aria-label="SNAP price"
         />
-        <div class="slide-scale halo">
+        <div class="slide-scale">
           <span>0</span>
           <span>26.37</span>
         </div>
@@ -83,6 +81,6 @@
       </form>
     </div>
 
-    <script src="app.js?v=20"></script>
+    <script src="app.js?v=18"></script>
   </body>
 </html>
