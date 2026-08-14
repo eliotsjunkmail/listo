@@ -166,19 +166,21 @@
     } else {
       const direction =
         (quote.change ?? 0) > 0.004 ? "up" : (quote.change ?? 0) < -0.004 ? "down" : "unchanged";
+      const moveWord = direction === "up" ? "up " : "down ";
       const move =
         quote.change == null
           ? ""
           : direction === "unchanged"
             ? "flat"
-            : (direction === "up" ? "up " : "down ") + slimPrice(Math.abs(quote.change));
-      const asOf = quote.time ? " as of " + clock(quote.time) : "";
+            : moveWord + "<strong>" + slimPrice(Math.abs(quote.change)) + "</strong>";
+      const asOf = quote.time ? " as of <strong>" + clock(quote.time) + "</strong>" : "";
       const first =
         symbol +
         " is " +
         direction +
-        ". Trading at " +
+        ". Trading at <strong>" +
         slimPrice(quote.price) +
+        "</strong>" +
         (move ? ", " + move + " for today" : "") +
         asOf +
         ".";
@@ -186,18 +188,21 @@
       if (goalPrice == null) {
         second = "";
       } else if (neededFromStock <= 0) {
-        second = " You've already reached your target of " + compactMoney(target).replace("$", "") + ".";
+        second =
+          " You've already reached your target of <strong>" +
+          compactMoney(target).replace("$", "") +
+          "</strong>.";
       } else {
         second =
           " When " +
           symbol +
-          " gets to " +
+          " gets to <strong>" +
           slimPrice(goalPrice) +
-          " you will reach your target of " +
+          "</strong> you will reach your target of <strong>" +
           compactMoney(target).replace("$", "") +
-          ".";
+          "</strong>.";
       }
-      els.story.textContent = first + second;
+      els.story.innerHTML = first + second;
     }
 
     els.fill.style.height = pct + "%";
@@ -206,9 +211,11 @@
   }
 
   async function refresh() {
-    const { symbol } = loadSettings();
+    const initial = !quote;
+    const started = Date.now();
+    if (initial) document.body.classList.remove("is-ready");
     try {
-      quote = parseQuote(await loadYahoo(symbol));
+      quote = parseQuote(await loadYahoo(loadSettings().symbol));
       if (quote.symbol) {
         const cfg = loadSettings();
         cfg.symbol = quote.symbol;
@@ -219,6 +226,9 @@
     } catch (err) {
       els.story.textContent = "Could not load quote";
       console.error(err);
+    } finally {
+      const wait = initial ? Math.max(0, 700 - (Date.now() - started)) : 0;
+      window.setTimeout(() => document.body.classList.add("is-ready"), wait);
     }
   }
 

@@ -75,14 +75,14 @@ body {
 }
 
 .figures {
-  display: grid;
+  display: none;
   justify-items: center;
   width: min(22rem, 100%);
 }
 
-.figures .value,
-.figures .pct {
-  mix-blend-mode: difference;
+.value,
+.pct {
+  color: #111;
 }
 
 .value {
@@ -96,9 +96,8 @@ body {
 .pct {
   margin: 0.55rem 0 0;
   font-size: clamp(1.1rem, 4vw, 1.6rem);
-  font-weight: 500;
+  font-weight: 700;
   letter-spacing: 0.04em;
-  opacity: 0.72;
 }
 
 .story {
@@ -110,22 +109,26 @@ body {
   max-width: 20rem;
 }
 
+.story strong {
+  font-weight: 700;
+}
+
 .spinner {
-  display: none;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  border: 3px solid rgba(255, 255, 255, 0.18);
-  border-top-color: var(--yellow);
-  animation: spin 0.7s linear infinite;
-}
-
-body.is-loading .figures {
-  display: none;
-}
-
-body.is-loading .spinner {
   display: block;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 6px solid #2a2a2a;
+  border-top-color: #ffee00;
+  animation: spin 0.65s linear infinite;
+}
+
+body.is-ready .figures {
+  display: grid;
+}
+
+body.is-ready .spinner {
+  display: none;
 }
 
 @keyframes spin {
