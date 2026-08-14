@@ -26,21 +26,53 @@
   /** @type {{symbol?:string, price:number|null, change:number|null, time:Date|null}|null} */
   let quote = null;
 
+  const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+  function readCookie(name) {
+    const parts = document.cookie.split("; ");
+    for (const part of parts) {
+      if (part.startsWith(name + "=")) {
+        return decodeURIComponent(part.slice(name.length + 1));
+      }
+    }
+    return "";
+  }
+
+  function writeCookie(name, value) {
+    document.cookie =
+      name +
+      "=" +
+      encodeURIComponent(value) +
+      "; Max-Age=" +
+      COOKIE_MAX_AGE +
+      "; Path=/; SameSite=Lax";
+  }
+
+  function parseSettings(raw) {
+    const parsed = JSON.parse(raw);
+    return {
+      symbol: String(parsed.symbol || DEFAULTS.symbol).toUpperCase(),
+      shares: Number(parsed.shares) > 0 ? Number(parsed.shares) : DEFAULTS.shares,
+      assets: Number(parsed.assets) >= 0 ? Number(parsed.assets) : DEFAULTS.assets,
+      target: Number(parsed.target) > 0 ? Number(parsed.target) : DEFAULTS.target,
+      distribution: normalizeRate(parsed.distribution),
+    };
+  }
+
   function loadSettings() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return { ...DEFAULTS };
-      const parsed = JSON.parse(raw);
-      return {
-        symbol: String(parsed.symbol || DEFAULTS.symbol).toUpperCase(),
-        shares: Number(parsed.shares) > 0 ? Number(parsed.shares) : DEFAULTS.shares,
-        assets: Number(parsed.assets) >= 0 ? Number(parsed.assets) : DEFAULTS.assets,
-        target: Number(parsed.target) > 0 ? Number(parsed.target) : DEFAULTS.target,
-        distribution: normalizeRate(parsed.distribution),
-      };
+      const fromCookie = readCookie(STORAGE_KEY);
+      if (fromCookie) return parseSettings(fromCookie);
+      const fromLocal = localStorage.getItem(STORAGE_KEY);
+      if (fromLocal) {
+        const cfg = parseSettings(fromLocal);
+        persist(cfg);
+        return cfg;
+      }
     } catch {
-      return { ...DEFAULTS };
+      /* use defaults */
     }
+    return { ...DEFAULTS };
   }
 
   function readForm() {
