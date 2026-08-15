@@ -276,7 +276,8 @@ body {
   border-radius: 999px;
   background: rgba(4, 12, 10, 0.72);
   border: 1px solid rgba(120, 220, 150, 0.28);
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .timer-track {
