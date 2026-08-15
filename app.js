@@ -65,6 +65,7 @@
     leaderboardList: document.getElementById("leaderboard-list"),
     roundStatus: document.getElementById("round-status"),
     roundPlay: document.getElementById("round-play"),
+    roundClose: document.getElementById("round-close"),
     logs: [0, 1, 2, 3].map((i) => ({
       el: document.getElementById("log-" + i),
       sym: document.getElementById("sym-" + i),
@@ -1628,6 +1629,11 @@
     if (els.roundScrim) els.roundScrim.hidden = true;
   }
 
+  function openRoundSheet() {
+    if (roundState === "playing") return;
+    showRoundSheet(roundState === "ended" ? "ended" : "idle");
+  }
+
   function startRound() {
     const name = persistPlayerName(els.playerName?.value || readStoredPlayerName());
     if (!name) {
@@ -1800,6 +1806,17 @@
     startRound();
   });
 
+  els.roundClose?.addEventListener("click", () => {
+    if (roundState === "ended") {
+      showRoundSheet("idle");
+    }
+    hideRoundSheet();
+  });
+
+  els.timer?.addEventListener("click", () => {
+    openRoundSheet();
+  });
+
   els.gear.addEventListener("click", openSettings);
   els.version?.addEventListener("click", () => {
     const url = new URL(location.href);
@@ -1820,8 +1837,9 @@
       return;
     }
     if (els.roundScrim && !els.roundScrim.hidden) {
-      if (e.key === "Escape" && roundState === "ended") {
-        /* keep sheet open until they play again */
+      if (e.key === "Escape") {
+        if (roundState === "ended") showRoundSheet("idle");
+        hideRoundSheet();
       }
       return;
     }

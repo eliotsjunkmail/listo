@@ -1040,6 +1040,77 @@ body.is-vertical .log.is-down .log-wood {
   background: rgba(255, 255, 255, 0.28);
 }
 
+.sheet-top {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 1.6rem;
+  margin-bottom: 0.15rem;
+}
+
+.sheet-top .sheet-handle {
+  margin: 0.15rem auto;
+}
+
+.sheet-close {
+  position: absolute;
+  top: -0.1rem;
+  right: -0.25rem;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(238, 246, 239, 0.85);
+  font-size: 1.45rem;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.sheet-close:active {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.round-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  overflow: hidden;
+  max-height: min(92vh, 100%);
+  padding-bottom: 0;
+}
+
+.round-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  gap: 0.85rem;
+  padding-bottom: 0.35rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.round-footer {
+  flex: 0 0 auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 0 -1.15rem;
+  padding: 0.65rem 1.15rem calc(1.15rem + env(safe-area-inset-bottom));
+  background:
+    linear-gradient(180deg, rgba(20, 26, 22, 0), #141a16 22%),
+    #141a16;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.round-footer .done {
+  margin-top: 0;
+  width: 100%;
+}
+
 .panel h2 {
   margin: 0 0 0.15rem;
   font-size: 1.15rem;
