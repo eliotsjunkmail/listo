@@ -364,7 +364,8 @@ body {
 .round-score[hidden],
 .leaderboard[hidden],
 #player-name-field[hidden],
-.round-status[hidden] {
+.round-status[hidden],
+.pace-field[hidden] {
   display: none !important;
 }
 

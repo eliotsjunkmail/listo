@@ -1799,6 +1799,7 @@
     hideRoundSheet();
     document.body.classList.remove("is-demo");
     if (els.demoOverlay) els.demoOverlay.hidden = true;
+    ensureAudio();
     restoreMotionAfterDemo();
     resetRoundPosition();
     updateTimerUi(ROUND_MS);
