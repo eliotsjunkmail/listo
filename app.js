@@ -706,25 +706,43 @@
     els.frog.dataset.lev = String(leverage);
     els.frog.setAttribute(
       "aria-label",
-      "Leverage " + leverage + "x. Tap to change"
+      "Leverage " + leverage + "x. Tap or use left and right to change"
     );
     if (els.frogLev) els.frogLev.textContent = leverage + "×";
   }
 
-  function cycleLeverage() {
-    if (!els.scrim.hidden) return;
-    leverage = leverage >= 5 ? 1 : leverage + 1;
+  function setLeverage(next, opts) {
+    const lev = Math.min(5, Math.max(1, Math.round(Number(next)) || 1));
+    const changed = lev !== leverage;
+    leverage = lev;
     if (holding && Number.isFinite(holding.entry) && holding.entry > 0) {
       holding.shares = (holding.invested * leverage) / holding.entry;
     }
     updateLeverageUi();
-    if (riding) {
+    if (riding && changed) {
       leverageSlideUntil = performance.now() + 220;
       leverageSlideArmed = true;
       placeFrog();
     }
     updateHud();
-    showToast(leverage + "× leverage");
+    if (changed && opts?.toast !== false) {
+      showToast(leverage + "× leverage");
+    }
+    return changed;
+  }
+
+  function cycleLeverage() {
+    if (!els.scrim.hidden) return;
+    setLeverage(leverage >= 5 ? 1 : leverage + 1);
+  }
+
+  /** Left/right on a log: step leverage 1←→5. Returns false if already at that edge. */
+  function shiftLeverageOnLog(dir) {
+    const delta = dir === "right" ? 1 : -1;
+    const next = leverage + delta;
+    if (next < 1 || next > 5) return false;
+    setLeverage(next);
+    return true;
   }
 
   function updateHud() {
