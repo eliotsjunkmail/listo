@@ -26,7 +26,7 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: #061018;
+  background: #03080c;
   color: var(--foam);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
@@ -34,9 +34,41 @@ body {
   touch-action: manipulation;
 }
 
+.app-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: #061018;
+  --shore-h: max(26%, 176px);
+}
+
+@media (min-width: 540px) {
+  html,
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 40%, #0a1820 0%, #03080c 70%);
+  }
+
+  .app-frame {
+    width: min(390px, 100vw - 2rem);
+    height: min(844px, 100dvh - 2rem);
+    max-height: 100dvh;
+    border-radius: 28px;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 24px 64px rgba(0, 0, 0, 0.55),
+      0 0 0 10px rgba(0, 0, 0, 0.35);
+  }
+}
+
 .synth-toggle,
 .market {
-  position: fixed;
+  position: absolute;
   top: auto;
   z-index: 20;
   display: inline-flex;
@@ -78,7 +110,7 @@ body {
 }
 
 .app-version {
-  position: fixed;
+  position: absolute;
   left: max(0.85rem, env(safe-area-inset-left));
   bottom: max(0.55rem, calc(env(safe-area-inset-bottom) + 0.35rem));
   z-index: 20;
@@ -167,7 +199,7 @@ body {
 }
 
 .hud {
-  position: fixed;
+  position: absolute;
   top: max(0.75rem, calc(env(safe-area-inset-top) + 0.45rem));
   left: 50%;
   transform: translateX(-50%);
@@ -468,7 +500,7 @@ body {
 }
 
 .toast {
-  position: fixed;
+  position: absolute;
   top: 42%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -529,7 +561,7 @@ body {
 
 .bank-bottom {
   bottom: 0;
-  height: 26vh;
+  height: var(--shore-h);
   min-height: 176px;
   border-top: 4px solid rgba(0, 0, 0, 0.25);
   background:
@@ -542,7 +574,7 @@ body {
   left: 0;
   right: 0;
   top: var(--hud-clearance);
-  bottom: 26vh;
+  bottom: var(--shore-h);
   z-index: 1;
   display: grid;
   grid-template-rows: repeat(4, 1fr);
@@ -1036,7 +1068,7 @@ body.is-vertical .log.is-down .log-wood {
 }
 
 .pad {
-  position: fixed;
+  position: absolute;
   right: max(1.1rem, calc(env(safe-area-inset-right) + 0.55rem));
   bottom: max(1.35rem, calc(env(safe-area-inset-bottom) + 0.85rem));
   z-index: 20;
@@ -1071,13 +1103,13 @@ body.is-vertical .log.is-down .log-wood {
 }
 
 .demo-overlay {
-  position: fixed;
+  position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   top: auto;
   z-index: 25;
-  height: 26vh;
+  height: var(--shore-h);
   min-height: 176px;
   display: flex;
   align-items: stretch;
@@ -1169,7 +1201,7 @@ body.is-demo .app-version {
 }
 
 .scrim {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 50;
   display: flex;
@@ -1189,7 +1221,7 @@ body.is-demo .app-version {
 .panel {
   width: 100%;
   max-width: 560px;
-  max-height: min(92vh, 100%);
+  max-height: min(92%, 100%);
   overflow: auto;
   background: #141a16;
   color: var(--foam);
@@ -1271,7 +1303,7 @@ body.is-demo .app-version {
   flex-direction: column;
   gap: 0.75rem;
   width: min(420px, 100%);
-  max-height: min(70vh, 720px);
+  max-height: min(70%, 720px);
   overflow: hidden;
   margin: 0;
   padding: 1rem 1.15rem 0;
