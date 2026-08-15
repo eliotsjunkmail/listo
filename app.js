@@ -67,6 +67,8 @@
 
   /** @type {{symbol:string, shares:number, invested:number}|null} */
   let holding = null;
+  /** Liquid cash after selling back to shore; spent when boarding a log */
+  let cash = BUY_DOLLARS;
 
   const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -605,6 +607,28 @@
     return quotes.find((q) => q.symbol === symbol) || null;
   }
 
+  function money(n) {
+    return (
+      "$" +
+      n.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    );
+  }
+
+  function pnlText(value) {
+    const pnl = value - BUY_DOLLARS;
+    return (
+      (pnl >= 0 ? "+" : "−") +
+      "$" +
+      Math.abs(pnl).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    );
+  }
+
   function holdingValue() {
     if (!holding) return null;
     const q = quoteForSymbol(holding.symbol);
@@ -615,8 +639,9 @@
 
   function updateHud() {
     if (!holding) {
-      els.hudCash.textContent = "Jump a log to invest $1,000";
-      els.hudBuys.textContent = "";
+      els.hudCash.textContent = "Cash " + money(cash) + "  " + pnlText(cash);
+      els.hudBuys.textContent =
+        cash > 0 ? "Jump a log to invest" : "Jump a log to invest $1,000";
       return;
     }
     const value = holdingValue();
@@ -627,22 +652,7 @@
       els.hudBuys.textContent = "";
       return;
     }
-    const pnl = value - BUY_DOLLARS;
-    const pnlTxt =
-      (pnl >= 0 ? "+" : "−") +
-      "$" +
-      Math.abs(pnl).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-    els.hudCash.textContent =
-      "$" +
-      value.toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }) +
-      "  " +
-      pnlTxt;
+    els.hudCash.textContent = money(value) + "  " + pnlText(value);
     els.hudBuys.textContent =
       holding.symbol +
       " · " +
@@ -651,20 +661,37 @@
       slimPrice(px);
   }
 
-  /** First log: invest $1000. Switching logs: sell MTM value, buy the next stock. */
+  /** Sell the open position into cash (shore). Stops tracking stock moves. */
+  function sellToCash() {
+    if (!holding) return;
+    const value = holdingValue();
+    const from = holding.symbol;
+    if (value != null && value > 0) {
+      cash = value;
+      showToast("Sold " + from + " → " + money(cash) + " cash");
+    } else {
+      showToast("Closed " + from);
+    }
+    holding = null;
+    updateHud();
+  }
+
+  /** First log: invest cash. Switching logs: sell MTM value, buy the next stock. */
   function landOnLog(index) {
     const q = quotes[index];
     if (!q || !Number.isFinite(q.last) || q.last <= 0) return;
 
     if (!holding) {
+      const spend = cash > 0 ? cash : BUY_DOLLARS;
       holding = {
         symbol: q.symbol,
-        shares: BUY_DOLLARS / q.last,
-        invested: BUY_DOLLARS,
+        shares: spend / q.last,
+        invested: spend,
       };
+      cash = 0;
       updateHud();
       showToast(
-        "Invested $1,000 in " + q.symbol + " @ " + slimPrice(q.last)
+        "Invested " + money(spend) + " in " + q.symbol + " @ " + slimPrice(q.last)
       );
       return;
     }
@@ -686,8 +713,8 @@
     showToast(
       "Sold " +
         from +
-        " ($" +
-        soldValue.toFixed(2) +
+        " (" +
+        money(soldValue) +
         ") → " +
         q.symbol +
         " @ " +
@@ -815,6 +842,7 @@
           riding = false;
           rideOffsetX = 0;
           rideOffsetY = 0;
+          sellToCash();
           finishMove();
           return;
         }
@@ -831,6 +859,7 @@
           riding = false;
           rideOffsetX = 0;
           rideOffsetY = 0;
+          sellToCash();
           finishMove();
           return;
         }
@@ -860,6 +889,7 @@
       riding = false;
       rideOffsetX = 0;
       rideOffsetY = 0;
+      if (next === 3) sellToCash();
     } else if (dir === "down") {
       const next = Math.max(-1, frogLane - 1);
       const logIdx = logIndexForLane(next);
@@ -871,6 +901,7 @@
       riding = false;
       rideOffsetX = 0;
       rideOffsetY = 0;
+      if (next === -1) sellToCash();
     }
 
     finishMove();
@@ -1078,6 +1109,7 @@
       };
       persist(next);
       holding = null;
+      cash = BUY_DOLLARS;
       updateHud();
       quotes = next.symbols.map((s) => seedQuote(s));
       applyLogTransition(synthParams(next.pace).interval);
