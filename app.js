@@ -1636,7 +1636,6 @@
     roundState = ended ? "ended" : "demo";
     stopRoundClock();
     if (els.roundScrim) {
-      els.roundScrim.classList.toggle("is-demo", !ended);
       els.roundScrim.hidden = false;
     }
     if (els.roundTitle) {
@@ -1888,6 +1887,16 @@
   });
 
   els.roundClose?.addEventListener("click", () => {
+    if (roundState === "ended") {
+      roundState = "demo";
+      startDemoMotion();
+    }
+    hideRoundSheet();
+  });
+
+  els.roundScrim?.addEventListener("click", (e) => {
+    if (e.target !== els.roundScrim) return;
+    if (roundState === "playing") return;
     if (roundState === "ended") {
       roundState = "demo";
       startDemoMotion();
