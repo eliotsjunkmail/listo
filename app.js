@@ -575,10 +575,23 @@
       const fx = logCx + rideOffsetX;
       const fy = logCy + rideOffsetY - size / 2;
       const sliding = performance.now() < leverageSlideUntil;
-      frog.classList.toggle("is-riding", !sliding);
-      frog.style.transition = sliding
-        ? "left 0.2s ease, top 0.2s ease, width 0.18s ease, height 0.18s ease"
-        : "none";
+
+      if (sliding) {
+        if (leverageSlideArmed) {
+          leverageSlideArmed = false;
+          frog.classList.remove("is-riding");
+          frog.style.transition =
+            "left 0.2s ease, top 0.2s ease, width 0.18s ease, height 0.18s ease";
+          frog.style.left = fx + "px";
+          frog.style.top = fy + "px";
+          frogX = fx / worldW;
+        }
+        startRideLoop();
+        return;
+      }
+
+      frog.classList.add("is-riding");
+      frog.style.transition = "none";
       frog.style.left = fx + "px";
       frog.style.top = fy + "px";
       frogX = fx / worldW;
@@ -706,6 +719,7 @@
     updateLeverageUi();
     if (riding) {
       leverageSlideUntil = performance.now() + 220;
+      leverageSlideArmed = true;
       placeFrog();
     }
     updateHud();
