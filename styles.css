@@ -168,7 +168,7 @@ body {
   z-index: 4;
   text-align: center;
   pointer-events: none;
-  width: min(22rem, calc(100% - 2rem));
+  width: min(16rem, calc(100% - 10.5rem));
 }
 
 .hud-title {
