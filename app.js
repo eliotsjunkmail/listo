@@ -66,7 +66,6 @@
   let toastTimer = 0;
   let synthTimer = 0;
   let rideRaf = 0;
-  let hopTimer = 0;
   /** While > now, frog eases to the new leverage seat (skip mid-slide rAF snaps) */
   let leverageSlideUntil = 0;
   let leverageSlideArmed = false;
@@ -810,7 +809,6 @@
     const next = leverage + delta;
     if (next < 1 || next > 5) return false;
     setLeverage(next);
-    hopFrog();
     return true;
   }
 
@@ -944,22 +942,12 @@
     );
   }
 
-  function hopFrog() {
-    els.frog.classList.remove("is-jumping");
-    void els.frog.offsetWidth;
-    els.frog.classList.add("is-jumping");
-    window.clearTimeout(hopTimer);
-    hopTimer = window.setTimeout(() => {
-      els.frog.classList.remove("is-jumping");
-    }, 280);
-  }
-
   function finishMove() {
     placeFrog();
     window.setTimeout(() => {
       els.frog.classList.remove("is-jumping");
       busy = false;
-    }, 280);
+    }, 220);
   }
 
   /**
@@ -1029,7 +1017,7 @@
     window.setTimeout(() => {
       els.frog.classList.remove("is-jumping");
       busy = false;
-    }, 280);
+    }, 220);
   }
 
   function move(dir) {
