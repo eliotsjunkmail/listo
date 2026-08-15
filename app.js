@@ -1199,11 +1199,17 @@
   quotes = saved.symbols.map((s) => seedQuote(s));
 
   frogX = 0.5;
+  updateLeverageUi();
   placeFrog();
   updateHud();
   updateMarketBadge();
   applyOrientationClass();
   layoutLogs();
+
+  els.frog.addEventListener("click", (e) => {
+    e.stopPropagation();
+    cycleLeverage();
+  });
 
   els.synthToggle.addEventListener("click", () => {
     const on = els.synthToggle.getAttribute("aria-pressed") !== "true";
