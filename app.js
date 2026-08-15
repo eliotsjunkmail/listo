@@ -361,14 +361,6 @@
         log.el.style.width = Math.min(colW * 0.72, 120) + "px";
         log.el.style.height = h + "px";
         log.el.style.top = placedMid + "px";
-
-        layoutLevelLines(i, q, true, lane, worldW, {
-          mid: placedMid,
-          size: h,
-          span: laneH,
-          center,
-          scale,
-        });
       } else {
         const center = worldW / 2;
         const minW = 150;
@@ -389,14 +381,6 @@
         log.el.style.height = "";
         log.el.style.width = w + "px";
         log.el.style.left = placedMid + "px";
-
-        layoutLevelLines(i, q, false, lane, worldW, {
-          mid: placedMid,
-          size: w,
-          span: worldW,
-          center,
-          scale,
-        });
       }
 
       log.sym.textContent = q.symbol;
@@ -404,23 +388,22 @@
       log.chg.textContent = slimChange(q.change);
       log.el.classList.toggle("is-up", q.change > 0.004);
       log.el.classList.toggle("is-down", q.change < -0.004);
+
+      // After the log is placed (incl. transforms), pin S/R outside it
+      layoutLevelLines(i, q, vertical, lane);
     });
 
     placeFrog();
     updateHud();
   }
 
-  function layoutLevelLines(i, q, vertical, lane, worldW, logBox) {
+  function layoutLevelLines(i, q, vertical, lane) {
     const resEl = els.logs[i].res;
     const supEl = els.logs[i].sup;
-    if (!resEl || !supEl) return;
+    const logEl = els.logs[i].el;
+    if (!resEl || !supEl || !logEl || !lane) return;
     const synth = document.body.classList.contains("synth-on");
-    if (
-      !synth ||
-      !Number.isFinite(q.support) ||
-      !Number.isFinite(q.resistance) ||
-      !logBox
-    ) {
+    if (!synth || !Number.isFinite(q.open)) {
       resEl.hidden = true;
       supEl.hidden = true;
       return;
@@ -428,47 +411,69 @@
     resEl.hidden = false;
     supEl.hidden = false;
 
-    const pad = 20;
-    const { mid, size, span, center, scale } = logBox;
-    const logLo = mid - size / 2;
-    const logHi = mid + size / 2;
+    const clearance = 28;
+    const laneBox = lane.getBoundingClientRect();
+    const logBox = logEl.getBoundingClientRect();
+    const laneH = lane.clientHeight || laneBox.height;
+    const laneW = lane.clientWidth || laneBox.width;
+    const centerY = laneH / 2;
+    const centerX = laneW / 2;
+    const scale = vertical
+      ? pxPerDollar(q.open, laneH)
+      : pxPerDollar(q.open, els.world.clientWidth || window.innerWidth);
 
     if (vertical) {
-      // Screen Y: smaller = higher price (toward top)
-      let resY = center - (q.resistance - q.open) * scale;
-      let supY = center - (q.support - q.open) * scale;
-      // Keep resistance clearly above the log, support clearly below
-      if (resY > logLo - pad) resY = logLo - pad;
-      if (supY < logHi + pad) supY = logHi + pad;
-      // Stay on-screen
-      resY = Math.max(10, resY);
-      supY = Math.min(span - 10, Math.max(resY + 24, supY));
-
-      // Sync prices to the visible lines so bounces match what you see
-      q.resistance = q.open + (center - resY) / scale;
-      q.support = q.open + (center - supY) / scale;
+      const logTop = logBox.top - laneBox.top;
+      const logBot = logBox.bottom - laneBox.top;
+      let resY = logTop - clearance;
+      let supY = logBot + clearance;
+      // If the channel is too tight for the lane, shrink toward edges but
+      // never let a line sit on top of the log body.
+      resY = Math.max(8, Math.min(resY, logTop - 12));
+      supY = Math.min(laneH - 8, Math.max(supY, logBot + 12));
+      if (supY - resY < 40) {
+        resY = Math.max(8, centerY - laneH * 0.38);
+        supY = Math.min(laneH - 8, centerY + laneH * 0.38);
+        // Still keep clear of the log if possible
+        if (resY > logTop - 12) resY = Math.max(8, logTop - 12);
+        if (supY < logBot + 12) supY = Math.min(laneH - 8, logBot + 12);
+      }
 
       resEl.style.top = resY + "px";
-      resEl.style.left = "";
-      resEl.style.right = "";
+      resEl.style.left = "0";
+      resEl.style.right = "0";
+      resEl.style.bottom = "auto";
       supEl.style.top = supY + "px";
-      supEl.style.left = "";
-      supEl.style.right = "";
-    } else {
-      let resX = center + (q.resistance - q.open) * scale;
-      let supX = center + (q.support - q.open) * scale;
-      if (resX < logHi + pad) resX = logHi + pad;
-      if (supX > logLo - pad) supX = logLo - pad;
-      resX = Math.min(span - 10, resX);
-      supX = Math.max(10, Math.min(resX - 24, supX));
+      supEl.style.left = "0";
+      supEl.style.right = "0";
+      supEl.style.bottom = "auto";
 
-      q.resistance = q.open + (resX - center) / scale;
-      q.support = q.open + (supX - center) / scale;
+      q.resistance = q.open + (centerY - resY) / scale;
+      q.support = q.open + (centerY - supY) / scale;
+    } else {
+      const logLeft = logBox.left - laneBox.left;
+      const logRight = logBox.right - laneBox.left;
+      // Horizontal motion: higher price = further right. R to the right of log, S left.
+      let resX = logRight + clearance;
+      let supX = logLeft - clearance;
+      resX = Math.min(laneW - 8, Math.max(resX, logRight + 12));
+      supX = Math.max(8, Math.min(supX, logLeft - 12));
 
       resEl.style.left = resX + "px";
-      resEl.style.top = "";
+      resEl.style.top = "0";
+      resEl.style.bottom = "0";
+      resEl.style.right = "auto";
       supEl.style.left = supX + "px";
-      supEl.style.top = "";
+      supEl.style.top = "0";
+      supEl.style.bottom = "0";
+      supEl.style.right = "auto";
+
+      const worldCenter = (els.world.clientWidth || window.innerWidth) / 2;
+      const worldScale = pxPerDollar(q.open, els.world.clientWidth || window.innerWidth);
+      const laneLeftInWorld = laneBox.left - els.world.getBoundingClientRect().left;
+      q.resistance = q.open + (laneLeftInWorld + resX - worldCenter) / worldScale;
+      q.support = q.open + (laneLeftInWorld + supX - worldCenter) / worldScale;
+      void centerX;
     }
 
     resEl.querySelector("span").textContent = "R " + slimPrice(q.resistance);
