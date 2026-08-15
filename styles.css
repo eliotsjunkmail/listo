@@ -209,9 +209,7 @@ body {
   cursor: pointer;
   backdrop-filter: blur(8px);
   pointer-events: auto;
-  border: 2px solid rgba(120, 220, 150, 0.35);
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.45),
     0 10px 24px rgba(0, 0, 0, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
