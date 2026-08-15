@@ -295,25 +295,6 @@ body.is-vertical .river {
   grid-template-rows: 1fr;
 }
 
-body.is-vertical .river::before {
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.05) 45%,
-    transparent 55%
-  );
-  animation: shimmer-y 7s linear infinite;
-}
-
-@keyframes shimmer-y {
-  from {
-    transform: translateY(-30%);
-  }
-  to {
-    transform: translateY(30%);
-  }
-}
-
 .lane {
   position: relative;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -341,6 +322,25 @@ body.is-vertical .lane:last-child {
   );
   animation: shimmer 7s linear infinite;
   pointer-events: none;
+}
+
+body.is-vertical .river::before {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.05) 45%,
+    transparent 55%
+  );
+  animation: shimmer-y 7s linear infinite;
+}
+
+@keyframes shimmer-y {
+  from {
+    transform: translateY(-30%);
+  }
+  to {
+    transform: translateY(30%);
+  }
 }
 
 @keyframes shimmer {
