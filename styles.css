@@ -235,12 +235,7 @@ body {
   z-index: 1;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 35%),
-    repeating-linear-gradient(
-      90deg,
-      var(--bank) 0 18px,
-      var(--bank-lit) 18px 22px,
-      var(--bank) 22px 40px
-    );
+    var(--bank);
 }
 
 .bank-top {
@@ -253,12 +248,7 @@ body {
   border-top: 4px solid rgba(0, 0, 0, 0.25);
   background:
     linear-gradient(0deg, rgba(255, 255, 255, 0.08), transparent 35%),
-    repeating-linear-gradient(
-      90deg,
-      var(--bank) 0 18px,
-      var(--bank-lit) 18px 22px,
-      var(--bank) 22px 40px
-    );
+    var(--bank);
 }
 
 .river {
