@@ -413,6 +413,24 @@ body.is-horizontal .level-tip {
   animation: level-flash 0.55s ease;
 }
 
+body.is-vertical .level::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -14px;
+  height: 28px;
+}
+
+body.is-horizontal .level::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -14px;
+  width: 28px;
+}
+
 @keyframes level-flash {
   0%,
   100% {

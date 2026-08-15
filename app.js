@@ -1388,6 +1388,16 @@
     if (cfg.synthetic) startSynthTimer();
   });
 
+  els.logs.forEach(({ res, sup }) => {
+    [res, sup].forEach((el) => {
+      if (!el) return;
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showLevelTip(el);
+      });
+    });
+  });
+
   els.gear.addEventListener("click", openSettings);
   els.scrim.addEventListener("click", (e) => {
     if (e.target === els.scrim) closeSettings(true);
