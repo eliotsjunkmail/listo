@@ -1022,6 +1022,103 @@ body.is-vertical .log.is-down .log-wood {
   background: rgba(62, 207, 106, 0.35);
 }
 
+.demo-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 1.5rem;
+  padding-bottom: max(7.5rem, calc(env(safe-area-inset-bottom) + 6.5rem));
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 42%, rgba(8, 18, 14, 0.15), rgba(4, 10, 12, 0.55) 70%),
+    rgba(4, 10, 12, 0.28);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.demo-overlay[hidden] {
+  display: none !important;
+}
+
+.demo-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 220, 150, 0.4);
+  background: rgba(8, 22, 14, 0.75);
+  color: #b8f5c8;
+  font-family: var(--score-font);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.demo-cta {
+  appearance: none;
+  border: 0;
+  border-radius: 16px;
+  padding: 0.95rem 1.8rem;
+  min-width: min(16rem, 78vw);
+  background: var(--leaf);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(0, 0, 0, 0.2);
+  animation: demo-cta-pulse 1.8s ease-in-out infinite;
+}
+
+.demo-cta:active {
+  transform: scale(0.97);
+}
+
+.demo-hint {
+  margin: 0;
+  color: rgba(238, 246, 239, 0.78);
+  font-size: 0.92rem;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+body.is-demo .hud-meta {
+  opacity: 0.55;
+}
+
+body.is-demo .timer-label::after {
+  content: none;
+}
+
+@keyframes demo-cta-pulse {
+  0%,
+  100% {
+    transform: translateY(0);
+    box-shadow:
+      0 10px 28px rgba(0, 0, 0, 0.35),
+      0 0 0 1px rgba(0, 0, 0, 0.2);
+  }
+  50% {
+    transform: translateY(-3px);
+    box-shadow:
+      0 16px 34px rgba(62, 207, 106, 0.28),
+      0 0 0 1px rgba(0, 0, 0, 0.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-cta {
+    animation: none;
+  }
+}
+
 .scrim {
   position: fixed;
   inset: 0;

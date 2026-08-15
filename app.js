@@ -67,6 +67,8 @@
     roundPlay: document.getElementById("round-play"),
     roundClose: document.getElementById("round-close"),
     playerNameField: document.getElementById("player-name-field"),
+    demoOverlay: document.getElementById("demo-overlay"),
+    demoCta: document.getElementById("demo-cta"),
     logs: [0, 1, 2, 3].map((i) => ({
       el: document.getElementById("log-" + i),
       sym: document.getElementById("sym-" + i),
@@ -1662,19 +1664,40 @@
       els.playerName.value = readStoredPlayerName();
       if (!ended) els.playerName.focus();
     }
-  }
-
-  function hideRoundSheet() {
-    if (els.roundScrim) els.roundScrim.hidden = true;
+    if (els.hudBuys && !ended) {
+      els.hudBuys.textContent = "Demo · tap Start game";
+    }
+    syncDemoOverlay();
   }
 
   function isRoundSheetOpen() {
     return !!(els.roundScrim && !els.roundScrim.hidden);
   }
 
+  function syncDemoOverlay() {
+    const showDemo = roundState === "demo" && !isRoundSheetOpen();
+    if (els.demoOverlay) els.demoOverlay.hidden = !showDemo;
+    document.body.classList.toggle("is-demo", roundState === "demo");
+  }
+
+  function hideRoundSheet() {
+    if (els.roundScrim) els.roundScrim.hidden = true;
+    syncDemoOverlay();
+  }
+
   function openRoundSheet() {
     if (roundState === "playing") return;
     showRoundSheet(roundState === "ended" ? "ended" : "demo");
+  }
+
+  function enterDemoView() {
+    roundState = "demo";
+    stopRoundClock();
+    resetRoundPosition();
+    updateTimerUi(ROUND_MS);
+    startDemoMotion();
+    if (els.roundScrim) els.roundScrim.hidden = true;
+    syncDemoOverlay();
   }
 
   function startRound() {
@@ -1689,6 +1712,8 @@
       return;
     }
     hideRoundSheet();
+    document.body.classList.remove("is-demo");
+    if (els.demoOverlay) els.demoOverlay.hidden = true;
     restoreMotionAfterDemo();
     resetRoundPosition();
     updateTimerUi(ROUND_MS);
@@ -1841,9 +1866,7 @@
   updateMarketBadge();
   applyOrientationClass();
   layoutLogs();
-  resetRoundPosition();
-  showRoundSheet("demo");
-  startDemoMotion();
+  enterDemoView();
 
   els.frog.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -1883,22 +1906,24 @@
     startRound();
   });
 
+  els.demoCta?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openRoundSheet();
+  });
+
+  els.demoOverlay?.addEventListener("click", (e) => {
+    if (e.target === els.demoCta) return;
+    openRoundSheet();
+  });
+
   els.roundClose?.addEventListener("click", () => {
-    if (roundState === "ended") {
-      roundState = "demo";
-      startDemoMotion();
-    }
-    hideRoundSheet();
+    enterDemoView();
   });
 
   els.roundScrim?.addEventListener("click", (e) => {
     if (e.target !== els.roundScrim) return;
     if (roundState === "playing") return;
-    if (roundState === "ended") {
-      roundState = "demo";
-      startDemoMotion();
-    }
-    hideRoundSheet();
+    enterDemoView();
   });
 
 
@@ -1946,11 +1971,7 @@
     }
     if (els.roundScrim && !els.roundScrim.hidden) {
       if (e.key === "Escape") {
-        if (roundState === "ended") {
-          roundState = "demo";
-          startDemoMotion();
-        }
-        hideRoundSheet();
+        enterDemoView();
       }
       return;
     }
