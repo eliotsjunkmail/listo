@@ -1176,6 +1176,11 @@ body.is-vertical .log.is-down .log-wood {
   text-transform: uppercase;
 }
 
+#player-name,
+#settings-player-name {
+  text-transform: none;
+}
+
 .panel input:not(.switch-input):not([type="checkbox"]):not([type="range"]):focus,
 .panel select:focus {
   border-color: var(--leaf);
