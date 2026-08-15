@@ -700,8 +700,7 @@ body.is-vertical .log-chg {
 
   .river::before,
   .market.is-open .market-dot,
-  .frog.is-jumping,
-  .goal-pad {
+  .frog.is-jumping {
     animation: none;
   }
 }

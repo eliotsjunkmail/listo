@@ -58,7 +58,6 @@
   let rideOffsetY = 0;
   let riding = false;
   let busy = false;
-  let reachedGoal = false;
   let toastTimer = 0;
   let synthTimer = 0;
 
@@ -528,40 +527,6 @@
     }
 
     restoreFrogTransition();
-    checkGoal();
-  }
-
-  function frogOverlapsGoal() {
-    if (!els.goal || frogLane !== 3) return false;
-    const frog = els.frog.getBoundingClientRect();
-    const goal = els.goal.getBoundingClientRect();
-    const pad = 4;
-    return (
-      frog.left + pad < goal.right &&
-      frog.right - pad > goal.left &&
-      frog.top + pad < goal.bottom &&
-      frog.bottom - pad > goal.top
-    );
-  }
-
-  function checkGoal() {
-    if (reachedGoal || frogLane !== 3) {
-      if (frogLane !== 3 && els.goal) els.goal.classList.remove("is-hit");
-      return;
-    }
-    if (!frogOverlapsGoal()) return;
-    reachedGoal = true;
-    els.goal.classList.add("is-hit");
-    const value = holdingValue();
-    const msg =
-      value != null
-        ? "Target hit! Portfolio $" +
-          value.toLocaleString("en-US", {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-          })
-        : "Target reached!";
-    showToast(msg);
   }
 
   function frogCenter() {
@@ -1077,8 +1042,6 @@
       };
       persist(next);
       holding = null;
-      reachedGoal = false;
-      if (els.goal) els.goal.classList.remove("is-hit");
       updateHud();
       quotes = next.symbols.map((s) => seedQuote(s));
       applyLogTransition(synthParams(next.pace).interval);
