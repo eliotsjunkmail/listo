@@ -8,7 +8,7 @@
   const TOP_BANK_LANE = LANE_COUNT;
   const DEFAULTS = {
     symbols: ["SNAP", "META", "GOOG", "NVDA"],
-    synthetic: true,
+    synthetic: false,
     pace: 4,
     orientation: "vertical",
     sound: true,
@@ -236,7 +236,8 @@
     }
     return {
       symbols: [...DEFAULTS.symbols],
-      synthetic: DEFAULTS.synthetic,
+      // Prefer live quotes when NYSE is open; demo mode when closed.
+      synthetic: !isNyseOpen(),
       pace: DEFAULTS.pace,
       orientation: DEFAULTS.orientation,
       sound: DEFAULTS.sound,
@@ -1411,12 +1412,20 @@
     if (els.paceValue) els.paceValue.textContent = String(p);
   }
 
+  function syncDemoModeUi(on) {
+    if (els.synthToggle) {
+      els.synthToggle.setAttribute("aria-pressed", on ? "true" : "false");
+    }
+    if (els.synthLabel) {
+      els.synthLabel.textContent = on ? "Demo mode ON" : "Demo mode OFF";
+    }
+  }
+
   function setSynthetic(on) {
     const cfg = loadSettings();
     cfg.synthetic = on;
     persist(cfg);
-    els.synthToggle.setAttribute("aria-pressed", on ? "true" : "false");
-    els.synthLabel.textContent = on ? "Synthetic on" : "Synthetic off";
+    syncDemoModeUi(on);
     document.body.classList.toggle("synth-on", on);
     window.clearInterval(synthTimer);
     if (on) {
@@ -1612,10 +1621,6 @@
   function startDemoMotion() {
     demoMotion = true;
     document.body.classList.add("synth-on");
-    if (els.synthToggle) {
-      els.synthToggle.setAttribute("aria-pressed", "true");
-      if (els.synthLabel) els.synthLabel.textContent = "Synthetic on";
-    }
     startSynthTimer();
     layoutLogs();
   }
@@ -1630,10 +1635,7 @@
     }
     window.clearInterval(synthTimer);
     document.body.classList.remove("synth-on");
-    if (els.synthToggle) {
-      els.synthToggle.setAttribute("aria-pressed", "false");
-      if (els.synthLabel) els.synthLabel.textContent = "Synthetic off";
-    }
+    syncDemoModeUi(false);
     refresh(true);
   }
 
@@ -2028,7 +2030,8 @@
     layoutLogs();
   });
 
-  // Prefetch live quotes when the user prefers non-synthetic play; demo keeps moving.
+  syncDemoModeUi(saved.synthetic);
+  // Prefer live market data when demo mode is off (default while NYSE is open).
   if (!saved.synthetic) {
     refresh(true);
   }
