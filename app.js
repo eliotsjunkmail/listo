@@ -1912,6 +1912,10 @@
     openRoundSheet();
   });
 
+  els.demoOverlay?.addEventListener("click", () => {
+    openRoundSheet();
+  });
+
   els.roundClose?.addEventListener("click", () => {
     enterDemoView();
   });
