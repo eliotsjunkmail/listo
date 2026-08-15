@@ -1170,7 +1170,9 @@ body.is-vertical .log.is-down .log-wood {
 
   .river::before,
   .market.is-open .market-dot,
-  .frog.is-jumping {
-    animation: none;
+  .frog.is-jumping .frog-fig,
+  .frog.is-jumping .frog-leg,
+  .frog.is-jumping .frog-eye {
+    animation: none !important;
   }
 }
