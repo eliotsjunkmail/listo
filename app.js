@@ -640,8 +640,7 @@
   function updateHud() {
     if (!holding) {
       els.hudCash.textContent = "Cash " + money(cash) + "  " + pnlText(cash);
-      els.hudBuys.textContent =
-        cash > 0 ? "Jump a log to invest" : "Jump a log to invest $1,000";
+      els.hudBuys.textContent = "Jump a log to invest";
       return;
     }
     const value = holdingValue();
