@@ -60,6 +60,14 @@ body {
   font-family: inherit;
 }
 
+.market {
+  left: max(0.75rem, env(safe-area-inset-left));
+  right: auto;
+  bottom: max(3.35rem, calc(env(safe-area-inset-bottom) + 3.05rem));
+  transform: none;
+  pointer-events: none;
+}
+
 .pace-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -106,14 +114,6 @@ body {
 
 .synth-toggle[aria-pressed="true"] .synth-dot {
   background: #3ecf6a;
-}
-
-.market {
-  left: 50%;
-  right: auto;
-  bottom: max(0.9rem, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  pointer-events: none;
 }
 
 .market.is-open .market-dot {

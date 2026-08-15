@@ -264,8 +264,8 @@
     const open = isNyseOpen();
     els.market.classList.toggle("is-open", open);
     els.market.classList.toggle("is-closed", !open);
-    els.marketLabel.textContent = open ? "NYSE open" : "NYSE closed";
-    els.market.setAttribute("aria-label", open ? "NYSE is open" : "NYSE is closed");
+    els.marketLabel.textContent = open ? "Market open" : "Market closed";
+    els.market.setAttribute("aria-label", open ? "Market is open" : "Market is closed");
     return open;
   }
 
