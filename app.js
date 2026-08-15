@@ -1980,10 +1980,16 @@
     if (els.settingsPlayerName) els.settingsPlayerName.value = readStoredPlayerName();
     syncPaceUi(cfg.pace);
     els.scrim.hidden = false;
-    els.symA.focus();
+    // Autofocusing ticker inputs zooms the page on iOS Safari.
+    if (!window.matchMedia("(pointer: coarse)").matches) {
+      (els.settingsPlayerName || els.symA)?.focus();
+    }
   }
 
   function closeSettings(save) {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     if (save) {
       const prev = loadSettings();
       const next = {
