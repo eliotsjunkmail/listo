@@ -65,7 +65,9 @@
     leaderboardList: document.getElementById("leaderboard-list"),
     roundStatus: document.getElementById("round-status"),
     roundPlay: document.getElementById("round-play"),
+    roundSave: document.getElementById("round-save"),
     roundClose: document.getElementById("round-close"),
+    playerNameField: document.getElementById("player-name-field"),
     logs: [0, 1, 2, 3].map((i) => ({
       el: document.getElementById("log-" + i),
       sym: document.getElementById("sym-" + i),
@@ -101,11 +103,13 @@
   let levelTipTimer = 0;
   /** @type {AudioContext|null} */
   let audioCtx = null;
-  /** @type {"idle"|"playing"|"ended"} */
-  let roundState = "idle";
+  /** @type {"demo"|"playing"|"ended"} */
+  let roundState = "demo";
   let roundEndsAt = 0;
   let roundRaf = 0;
   let lastFinalScore = BUY_DOLLARS;
+  let demoMotion = false;
+  let scoreSavedThisRound = false;
 
   /** @type {{symbol:string, shares:number, invested:number, entry:number}|null} */
   let holding = null;
@@ -1599,30 +1603,67 @@
     updateHud();
   }
 
+  function startDemoMotion() {
+    demoMotion = true;
+    document.body.classList.add("synth-on");
+    if (els.synthToggle) {
+      els.synthToggle.setAttribute("aria-pressed", "true");
+      if (els.synthLabel) els.synthLabel.textContent = "Synthetic on";
+    }
+    startSynthTimer();
+    layoutLogs();
+  }
+
+  function restoreMotionAfterDemo() {
+    if (!demoMotion) return;
+    demoMotion = false;
+    const cfg = loadSettings();
+    if (cfg.synthetic) {
+      setSynthetic(true);
+      return;
+    }
+    window.clearInterval(synthTimer);
+    document.body.classList.remove("synth-on");
+    if (els.synthToggle) {
+      els.synthToggle.setAttribute("aria-pressed", "false");
+      if (els.synthLabel) els.synthLabel.textContent = "Synthetic off";
+    }
+    refresh(true);
+  }
+
   function showRoundSheet(mode) {
-    roundState = mode === "ended" ? "ended" : "idle";
+    const ended = mode === "ended";
+    roundState = ended ? "ended" : "demo";
     stopRoundClock();
+    if (els.roundScrim) {
+      els.roundScrim.classList.toggle("is-demo", !ended);
+      els.roundScrim.hidden = false;
+    }
     if (els.roundTitle) {
-      els.roundTitle.textContent = mode === "ended" ? "Time's up" : "Frogger";
+      els.roundTitle.textContent = ended ? "Time's up" : "Frogger";
     }
     if (els.roundCopy) {
-      els.roundCopy.textContent =
-        mode === "ended"
-          ? "Here's your score. Play another minute?"
-          : "One minute on the river. Grow your $100,000.";
+      els.roundCopy.textContent = ended
+        ? "Enter your name to save this score, or play again."
+        : "Watch the river, then tap Start for a 1-minute run.";
     }
-    if (els.roundScore) els.roundScore.hidden = mode !== "ended";
+    if (els.roundScore) els.roundScore.hidden = !ended;
     if (els.roundScoreValue) els.roundScoreValue.textContent = scoreMoney(lastFinalScore);
-    if (els.roundPlay) els.roundPlay.textContent = mode === "ended" ? "Play again" : "Play 1:00";
+    if (els.playerNameField) els.playerNameField.hidden = !ended;
+    if (els.roundSave) {
+      els.roundSave.hidden = !ended;
+      els.roundSave.textContent = "Save score";
+    }
+    if (els.roundPlay) els.roundPlay.textContent = ended ? "Play again" : "Start";
     if (els.roundStatus) {
       els.roundStatus.hidden = true;
       els.roundStatus.textContent = "";
     }
-    if (mode !== "ended" && els.leaderboard) els.leaderboard.hidden = true;
-    const name = readStoredPlayerName();
-    if (els.playerName) els.playerName.value = name;
-    if (els.roundScrim) els.roundScrim.hidden = false;
-    if (els.playerName) els.playerName.focus();
+    if (!ended && els.leaderboard) els.leaderboard.hidden = true;
+    if (els.playerName) {
+      els.playerName.value = readStoredPlayerName();
+      if (ended) els.playerName.focus();
+    }
   }
 
   function hideRoundSheet() {
@@ -1631,26 +1672,25 @@
 
   function openRoundSheet() {
     if (roundState === "playing") return;
-    showRoundSheet(roundState === "ended" ? "ended" : "idle");
+    showRoundSheet(roundState === "ended" ? "ended" : "demo");
   }
 
   function startRound() {
-    const name = persistPlayerName(els.playerName?.value || readStoredPlayerName());
-    if (!name) {
-      if (els.roundStatus) {
-        els.roundStatus.hidden = false;
-        els.roundStatus.textContent = "Enter a player name to start.";
-      }
-      els.playerName?.focus();
-      return;
-    }
     hideRoundSheet();
+    restoreMotionAfterDemo();
     resetRoundPosition();
     updateTimerUi(ROUND_MS);
+    scoreSavedThisRound = false;
     roundState = "playing";
     roundEndsAt = performance.now() + ROUND_MS;
     stopRoundClock();
     roundRaf = requestAnimationFrame(tickRoundClock);
+    if (loadSettings().synthetic) {
+      startSynthTimer();
+    } else if (!isNyseOpen()) {
+      // Closed market: keep logs moving so the timed round stays playable.
+      startDemoMotion();
+    }
     showToast("Go — 1:00");
   }
 
@@ -1662,31 +1702,57 @@
     if (holding) sellToCash();
     lastFinalScore = currentPortfolioValue();
     updateHud();
-    const name = readStoredPlayerName() || "Player";
+    scoreSavedThisRound = false;
     showRoundSheet("ended");
+    startDemoMotion();
+    try {
+      if (supabaseConfig()) {
+        const rows = await fetchLeaderboard();
+        renderLeaderboard(rows);
+      } else if (els.leaderboard) {
+        els.leaderboard.hidden = true;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function saveRoundScore() {
+    const name = persistPlayerName(els.playerName?.value || "");
+    if (!name) {
+      if (els.roundStatus) {
+        els.roundStatus.hidden = false;
+        els.roundStatus.textContent = "Enter your name to save this score.";
+      }
+      els.playerName?.focus();
+      return false;
+    }
     if (els.roundStatus) {
       els.roundStatus.hidden = false;
       els.roundStatus.textContent = supabaseConfig()
         ? "Saving score…"
-        : "Supabase not configured — score kept locally only.";
+        : "Supabase not configured.";
     }
     try {
-      if (supabaseConfig()) {
-        await saveScore(name, lastFinalScore);
-        const rows = await fetchLeaderboard();
-        renderLeaderboard(rows);
-        if (els.roundStatus) els.roundStatus.textContent = "Score saved to Supabase.";
-      } else {
-        renderLeaderboard([
-          { player_name: name, score: lastFinalScore },
-        ]);
+      if (!supabaseConfig()) {
+        if (els.roundStatus) {
+          els.roundStatus.textContent = "Supabase not configured — score not uploaded.";
+        }
+        return false;
       }
+      await saveScore(name, lastFinalScore);
+      scoreSavedThisRound = true;
+      const rows = await fetchLeaderboard();
+      renderLeaderboard(rows);
+      if (els.roundStatus) els.roundStatus.textContent = "Score saved to Supabase.";
+      if (els.roundSave) els.roundSave.textContent = "Saved";
+      return true;
     } catch (err) {
       console.error(err);
       if (els.roundStatus) {
-        els.roundStatus.textContent = "Could not save to Supabase. Try again later.";
+        els.roundStatus.textContent = "Could not save to Supabase. Try again.";
       }
-      renderLeaderboard([{ player_name: name, score: lastFinalScore }]);
+      return false;
     }
   }
 
@@ -1765,8 +1831,9 @@
   updateMarketBadge();
   applyOrientationClass();
   layoutLogs();
-  if (els.playerName) els.playerName.value = readStoredPlayerName();
-  showRoundSheet("idle");
+  resetRoundPosition();
+  showRoundSheet("demo");
+  startDemoMotion();
 
   els.frog.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -1808,9 +1875,14 @@
 
   els.roundClose?.addEventListener("click", () => {
     if (roundState === "ended") {
-      showRoundSheet("idle");
+      roundState = "demo";
+      startDemoMotion();
     }
     hideRoundSheet();
+  });
+
+  els.roundSave?.addEventListener("click", () => {
+    saveRoundScore();
   });
 
   els.timer?.addEventListener("click", () => {
@@ -1838,7 +1910,10 @@
     }
     if (els.roundScrim && !els.roundScrim.hidden) {
       if (e.key === "Escape") {
-        if (roundState === "ended") showRoundSheet("idle");
+        if (roundState === "ended") {
+          roundState = "demo";
+          startDemoMotion();
+        }
         hideRoundSheet();
       }
       return;
@@ -1875,17 +1950,14 @@
     layoutLogs();
   });
 
-  if (saved.synthetic) {
-    setSynthetic(true);
-  } else {
-    els.synthToggle.setAttribute("aria-pressed", "false");
-    els.synthLabel.textContent = "Synthetic off";
+  // Prefetch live quotes when the user prefers non-synthetic play; demo keeps moving.
+  if (!saved.synthetic) {
     refresh(true);
   }
 
   setInterval(() => {
     updateMarketBadge();
     const cfg = loadSettings();
-    if (!cfg.synthetic && isNyseOpen()) refresh(false);
+    if (roundState === "playing" && !cfg.synthetic && isNyseOpen()) refresh(false);
   }, 60_000);
 })();

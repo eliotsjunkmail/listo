@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=83" />
+    <link rel="stylesheet" href="styles.css?v=84" />
   </head>
   <body class="is-vertical">
     <button type="button" class="synth-toggle" id="synth-toggle" aria-pressed="false">
@@ -24,8 +24,8 @@
       <span class="market-label" id="market-label">Market</span>
     </div>
 
-    <button type="button" class="app-version" id="app-version" aria-label="Version 83. Tap to hard refresh">
-      v83
+    <button type="button" class="app-version" id="app-version" aria-label="Version 84. Tap to hard refresh">
+      v84
     </button>
 
     <header class="hud" aria-live="polite">
@@ -154,7 +154,7 @@
       </div>
     </div>
 
-    <div class="scrim round-scrim" id="round-scrim" hidden>
+    <div class="scrim round-scrim is-demo" id="round-scrim" hidden>
       <form class="panel round-panel" id="round-panel" role="dialog" aria-modal="true" aria-labelledby="round-title">
         <div class="sheet-top">
           <div class="sheet-handle" aria-hidden="true"></div>
@@ -165,17 +165,6 @@
         <div class="round-body">
           <h2 id="round-title">Frogger</h2>
           <p class="round-copy" id="round-copy">One minute on the river. Grow your $100,000.</p>
-          <label>
-            Player name
-            <input
-              id="player-name"
-              type="text"
-              maxlength="24"
-              spellcheck="false"
-              autocomplete="nickname"
-              placeholder="Your name"
-            />
-          </label>
           <div class="round-score" id="round-score" hidden>
             <span class="round-score-label">Final score</span>
             <span class="round-score-value" id="round-score-value">$100,000</span>
@@ -184,10 +173,22 @@
             <h3>Leaderboard</h3>
             <ol id="leaderboard-list"></ol>
           </div>
+          <label id="player-name-field" hidden>
+            Your name
+            <input
+              id="player-name"
+              type="text"
+              maxlength="24"
+              spellcheck="false"
+              autocomplete="nickname"
+              placeholder="Enter name to save"
+            />
+          </label>
           <p class="round-status" id="round-status" hidden></p>
         </div>
         <div class="round-footer">
-          <button type="submit" class="done" id="round-play">Play 1:00</button>
+          <button type="button" class="done done-save" id="round-save" hidden>Save score</button>
+          <button type="submit" class="done" id="round-play">Start</button>
         </div>
       </form>
     </div>
@@ -260,7 +261,7 @@
       </form>
     </div>
 
-    <script src="config.js?v=83"></script>
-    <script src="app.js?v=83"></script>
+    <script src="config.js?v=84"></script>
+    <script src="app.js?v=84"></script>
   </body>
 </html>

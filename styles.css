@@ -1094,6 +1094,18 @@ body.is-vertical .log.is-down .log-wood {
   -webkit-overflow-scrolling: touch;
 }
 
+.round-scrim.is-demo {
+  background: rgba(8, 12, 14, 0.28);
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+  align-items: flex-end;
+}
+
+.round-scrim.is-demo .round-panel {
+  max-height: none;
+  background: rgba(20, 26, 22, 0.92);
+}
+
 .round-footer {
   flex: 0 0 auto;
   position: sticky;
@@ -1105,11 +1117,23 @@ body.is-vertical .log.is-down .log-wood {
     linear-gradient(180deg, rgba(20, 26, 22, 0), #141a16 22%),
     #141a16;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: grid;
+  gap: 0.55rem;
 }
 
 .round-footer .done {
   margin-top: 0;
   width: 100%;
+}
+
+.done-save {
+  background: transparent;
+  color: var(--foam);
+  border: 1px solid rgba(120, 220, 150, 0.45);
+}
+
+.done-save:active {
+  background: rgba(62, 207, 106, 0.18);
 }
 
 .panel h2 {
