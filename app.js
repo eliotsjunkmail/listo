@@ -50,8 +50,8 @@
   let toastTimer = 0;
   let synthTimer = 0;
 
-  /** @type {Record<string, {shares:number, spent:number, buys:number}>} */
-  let portfolio = {};
+  /** @type {{symbol:string, shares:number, invested:number}|null} */
+  let holding = null;
 
   const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -297,6 +297,7 @@
     });
 
     placeFrog();
+    updateHud();
   }
 
   /** Map frog lane (0=nearest/bottom) to DOM log index (0=top). */
@@ -353,32 +354,98 @@
     }, 1600);
   }
 
+  function quoteForSymbol(symbol) {
+    return quotes.find((q) => q.symbol === symbol) || null;
+  }
+
+  function holdingValue() {
+    if (!holding) return null;
+    const q = quoteForSymbol(holding.symbol);
+    const px = q && Number.isFinite(q.last) && q.last > 0 ? q.last : null;
+    if (px == null) return null;
+    return holding.shares * px;
+  }
+
   function updateHud() {
-    const entries = Object.entries(portfolio);
-    if (!entries.length) {
-      els.hudCash.textContent = "Jump a log to buy $1,000";
+    if (!holding) {
+      els.hudCash.textContent = "Jump a log to invest $1,000";
       els.hudBuys.textContent = "";
       return;
     }
-    const spent = entries.reduce((s, [, p]) => s + p.spent, 0);
-    els.hudCash.textContent = "Bought $" + spent.toLocaleString("en-US") + " total";
-    els.hudBuys.textContent = entries
-      .map(([sym, p]) => sym + " " + p.shares.toFixed(p.shares >= 10 ? 1 : 2) + " sh")
-      .join(" · ");
+    const value = holdingValue();
+    const q = quoteForSymbol(holding.symbol);
+    const px = q?.last;
+    if (value == null || px == null) {
+      els.hudCash.textContent = holding.symbol + " —";
+      els.hudBuys.textContent = "";
+      return;
+    }
+    const pnl = value - BUY_DOLLARS;
+    const pnlTxt =
+      (pnl >= 0 ? "+" : "−") +
+      "$" +
+      Math.abs(pnl).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    els.hudCash.textContent =
+      "$" +
+      value.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) +
+      "  " +
+      pnlTxt;
+    els.hudBuys.textContent =
+      holding.symbol +
+      " · " +
+      holding.shares.toFixed(holding.shares >= 10 ? 2 : 3) +
+      " sh @ " +
+      slimPrice(px);
   }
 
-  function buyOnLog(index) {
+  /** First log: invest $1000. Switching logs: sell MTM value, buy the next stock. */
+  function landOnLog(index) {
     const q = quotes[index];
     if (!q || !Number.isFinite(q.last) || q.last <= 0) return;
-    const price = q.last;
-    const shares = BUY_DOLLARS / price;
-    const bag = portfolio[q.symbol] || { shares: 0, spent: 0, buys: 0 };
-    bag.shares += shares;
-    bag.spent += BUY_DOLLARS;
-    bag.buys += 1;
-    portfolio[q.symbol] = bag;
+
+    if (!holding) {
+      holding = {
+        symbol: q.symbol,
+        shares: BUY_DOLLARS / q.last,
+        invested: BUY_DOLLARS,
+      };
+      updateHud();
+      showToast(
+        "Invested $1,000 in " + q.symbol + " @ " + slimPrice(q.last)
+      );
+      return;
+    }
+
+    if (holding.symbol === q.symbol) {
+      updateHud();
+      return;
+    }
+
+    const soldValue = holdingValue();
+    if (soldValue == null || soldValue <= 0) return;
+    const from = holding.symbol;
+    holding = {
+      symbol: q.symbol,
+      shares: soldValue / q.last,
+      invested: soldValue,
+    };
     updateHud();
-    showToast("Bought $" + BUY_DOLLARS + " " + q.symbol + " @ " + slimPrice(price));
+    showToast(
+      "Sold " +
+        from +
+        " ($" +
+        soldValue.toFixed(2) +
+        ") → " +
+        q.symbol +
+        " @ " +
+        slimPrice(q.last)
+    );
   }
 
   function frogOverlapsLog(index) {
@@ -415,7 +482,7 @@
         placeFrog();
         if (frogOverlapsLog(logIdx)) {
           riding = true;
-          buyOnLog(logIdx);
+          landOnLog(logIdx);
         } else {
           riding = false;
           splash();
@@ -435,7 +502,7 @@
         placeFrog();
         if (frogOverlapsLog(logIdx)) {
           riding = true;
-          buyOnLog(logIdx);
+          landOnLog(logIdx);
         } else {
           riding = false;
           splash();
@@ -554,7 +621,7 @@
         synthetic: loadSettings().synthetic,
       };
       persist(next);
-      portfolio = {};
+      holding = null;
       updateHud();
       quotes = next.symbols.map((s) => seedQuote(s));
       if (next.synthetic) setSynthetic(true);
