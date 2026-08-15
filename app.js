@@ -35,7 +35,6 @@
     orientation: document.getElementById("orientation"),
     hudScore: document.getElementById("hud-score"),
     hudPnl: document.getElementById("hud-pnl"),
-    hudPct: document.getElementById("hud-pct"),
     hudChange: document.getElementById("hud-change"),
     hudBuys: document.getElementById("hud-buys"),
     toast: document.getElementById("toast"),
@@ -690,7 +689,6 @@
 
   function formatPnlParts(value) {
     const pnl = value - BUY_DOLLARS;
-    const pct = (pnl / BUY_DOLLARS) * 100;
     const sign = pnl >= 0 ? "+" : "−";
     const dollars =
       sign +
@@ -698,22 +696,14 @@
       Math.round(Math.abs(pnl)).toLocaleString("en-US", {
         maximumFractionDigits: 0,
       });
-    const percent =
-      sign +
-      Math.abs(pct).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }) +
-      "%";
     const tone = Math.abs(pnl) < 0.5 ? "flat" : pnl > 0 ? "up" : "down";
-    return { dollars, percent, tone };
+    return { dollars, tone };
   }
 
   function setScoreboard(value) {
     const parts = formatPnlParts(value);
     if (els.hudScore) els.hudScore.textContent = scoreMoney(value);
     if (els.hudPnl) els.hudPnl.textContent = parts.dollars;
-    if (els.hudPct) els.hudPct.textContent = parts.percent;
     if (els.hudChange) {
       els.hudChange.classList.toggle("is-up", parts.tone === "up");
       els.hudChange.classList.toggle("is-down", parts.tone === "down");
@@ -817,7 +807,6 @@
     if (value == null || px == null) {
       if (els.hudScore) els.hudScore.textContent = "—";
       if (els.hudPnl) els.hudPnl.textContent = "—";
-      if (els.hudPct) els.hudPct.textContent = "";
       if (els.hudChange) {
         els.hudChange.classList.remove("is-up", "is-down");
         els.hudChange.classList.add("is-flat");

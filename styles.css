@@ -217,29 +217,17 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.score-pct {
-  font-family: var(--score-font);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: rgba(238, 246, 239, 0.75);
-  font-variant-numeric: tabular-nums;
-}
-
-.score-change.is-up .score-value,
-.score-change.is-up .score-pct {
+.score-change.is-up .score-value {
   color: #5dff8a;
   text-shadow: 0 0 12px rgba(62, 207, 106, 0.45);
 }
 
-.score-change.is-down .score-value,
-.score-change.is-down .score-pct {
+.score-change.is-down .score-value {
   color: #ff6b6b;
   text-shadow: 0 0 12px rgba(255, 92, 92, 0.4);
 }
 
-.score-change.is-flat .score-value,
-.score-change.is-flat .score-pct {
+.score-change.is-flat .score-value {
   color: #f4ffe8;
   text-shadow: none;
 }
