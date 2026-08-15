@@ -4,6 +4,7 @@
   const DEFAULTS = {
     symbols: ["SNAP", "META", "GOOG"],
     synthetic: true,
+    pace: 4,
   };
 
   const SYNTH_BASE = {
@@ -26,6 +27,9 @@
     marketLabel: document.getElementById("market-label"),
     synthToggle: document.getElementById("synth-toggle"),
     synthLabel: document.getElementById("synth-label"),
+    synthPace: document.getElementById("synth-pace"),
+    paceSlider: document.getElementById("pace-slider"),
+    paceValue: document.getElementById("pace-value"),
     hudCash: document.getElementById("hud-cash"),
     hudBuys: document.getElementById("hud-buys"),
     toast: document.getElementById("toast"),
@@ -84,6 +88,12 @@
     return s || fallback;
   }
 
+  function clampPace(n) {
+    const p = Math.round(Number(n));
+    if (!Number.isFinite(p)) return DEFAULTS.pace;
+    return Math.min(10, Math.max(1, p));
+  }
+
   function parseSettings(raw) {
     const parsed = JSON.parse(raw);
     const symbols = Array.isArray(parsed.symbols)
@@ -96,6 +106,7 @@
         normalizeSymbol(symbols?.[2], DEFAULTS.symbols[2]),
       ],
       synthetic: Boolean(parsed.synthetic),
+      pace: clampPace(parsed.pace ?? DEFAULTS.pace),
     };
   }
 
@@ -112,7 +123,11 @@
     } catch {
       /* defaults */
     }
-    return { symbols: [...DEFAULTS.symbols], synthetic: DEFAULTS.synthetic };
+    return {
+      symbols: [...DEFAULTS.symbols],
+      synthetic: DEFAULTS.synthetic,
+      pace: DEFAULTS.pace,
+    };
   }
 
   function persist(cfg) {
@@ -524,14 +539,14 @@
   }
 
   function tickSynthetic() {
-    // ~a few basis points per step — logs creep like a quiet trading day
+    const { stepScale, maxMove, meanRevert } = synthParams(loadSettings().pace);
     quotes = quotes.map((q) => {
-      const step = Math.max(q.open * 0.00012, 0.002);
-      const towardOpen = (q.open - q.last) * 0.015;
+      const step = Math.max(q.open * 0.00012, 0.002) * stepScale;
+      const towardOpen = (q.open - q.last) * meanRevert;
       const drift = (Math.random() - 0.5) * step + towardOpen;
       let last = Math.max(0.5, q.last + drift);
-      const maxMove = q.open * 0.012;
-      last = Math.min(q.open + maxMove, Math.max(q.open - maxMove, last));
+      const cap = q.open * maxMove;
+      last = Math.min(q.open + cap, Math.max(q.open - cap, last));
       const half = Math.max(q.open * 0.00035, 0.01);
       return {
         ...q,
@@ -544,19 +559,52 @@
     layoutLogs();
   }
 
+  /** Pace 1 = quiet day, 10 = wild session. Controls step size + tick rate. */
+  function synthParams(pace) {
+    const t = (clampPace(pace) - 1) / 9;
+    return {
+      interval: Math.round(4200 - t * 3800),
+      stepScale: 0.35 + t * 7.65,
+      maxMove: 0.006 + t * 0.054,
+      meanRevert: 0.02 - t * 0.012,
+    };
+  }
+
+  function applyLogTransition(intervalMs) {
+    const ms = Math.max(280, Math.min(2400, intervalMs * 0.85));
+    els.logs.forEach(({ el }) => {
+      el.style.transition = `left ${ms}ms linear, width ${ms}ms ease`;
+    });
+  }
+
+  function startSynthTimer() {
+    window.clearInterval(synthTimer);
+    const cfg = loadSettings();
+    const { interval } = synthParams(cfg.pace);
+    applyLogTransition(interval);
+    synthTimer = window.setInterval(tickSynthetic, interval);
+  }
+
+  function syncPaceUi(pace) {
+    const p = clampPace(pace);
+    if (els.paceSlider) els.paceSlider.value = String(p);
+    if (els.paceValue) els.paceValue.textContent = String(p);
+  }
+
   function setSynthetic(on) {
     const cfg = loadSettings();
     cfg.synthetic = on;
     persist(cfg);
     els.synthToggle.setAttribute("aria-pressed", on ? "true" : "false");
     els.synthLabel.textContent = on ? "Synthetic on" : "Synthetic off";
+    if (els.synthPace) els.synthPace.hidden = !on;
     window.clearInterval(synthTimer);
     if (on) {
+      syncPaceUi(cfg.pace);
       quotes = cfg.symbols.map((s) => {
         const existing = quotes.find((q) => q.symbol === s);
         return existing && Number.isFinite(existing.last) ? existing : seedQuote(s);
       });
-      // Tiny staggered offsets so lanes aren't perfectly stacked at open
       quotes = quotes.map((q, i) => {
         const nudge = (i - 1) * q.open * 0.0015;
         const last = q.last + nudge;
@@ -570,7 +618,7 @@
         };
       });
       layoutLogs();
-      synthTimer = window.setInterval(tickSynthetic, 2500);
+      startSynthTimer();
     } else {
       refresh(true);
     }
@@ -619,6 +667,7 @@
           normalizeSymbol(els.symC.value, DEFAULTS.symbols[2]),
         ],
         synthetic: loadSettings().synthetic,
+        pace: loadSettings().pace,
       };
       persist(next);
       holding = null;
@@ -646,6 +695,15 @@
   els.synthToggle.addEventListener("click", () => {
     const on = els.synthToggle.getAttribute("aria-pressed") !== "true";
     setSynthetic(on);
+  });
+
+  els.paceSlider?.addEventListener("input", () => {
+    const pace = clampPace(els.paceSlider.value);
+    const cfg = loadSettings();
+    cfg.pace = pace;
+    persist(cfg);
+    syncPaceUi(pace);
+    if (cfg.synthetic) startSynthTimer();
   });
 
   els.gear.addEventListener("click", openSettings);
