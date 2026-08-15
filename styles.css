@@ -55,7 +55,7 @@ body {
 
 .synth-toggle {
   left: max(0.75rem, env(safe-area-inset-left));
-  bottom: max(0.9rem, calc(env(safe-area-inset-bottom) + 0.6rem));
+  bottom: max(2.55rem, calc(env(safe-area-inset-bottom) + 2.25rem));
   cursor: pointer;
   font-family: inherit;
 }
@@ -63,8 +63,21 @@ body {
 .market {
   left: max(0.75rem, env(safe-area-inset-left));
   right: auto;
-  bottom: max(3.35rem, calc(env(safe-area-inset-bottom) + 3.05rem));
+  bottom: max(5rem, calc(env(safe-area-inset-bottom) + 4.7rem));
   transform: none;
+  pointer-events: none;
+}
+
+.app-version {
+  position: fixed;
+  left: max(0.85rem, env(safe-area-inset-left));
+  bottom: max(0.55rem, calc(env(safe-area-inset-bottom) + 0.35rem));
+  z-index: 20;
+  font-family: var(--score-font);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(238, 246, 239, 0.55);
   pointer-events: none;
 }
 
