@@ -545,7 +545,8 @@ body.is-vertical .log-chg {
   color: rgba(246, 246, 242, 0.55);
 }
 
-.panel input {
+.panel input,
+.panel select {
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
@@ -555,10 +556,14 @@ body.is-vertical .log-chg {
   font-family: inherit;
   font-size: 1.05rem;
   outline: none;
+}
+
+.panel input {
   text-transform: uppercase;
 }
 
-.panel input:focus {
+.panel input:focus,
+.panel select:focus {
   border-color: var(--leaf);
 }
 
