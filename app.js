@@ -346,12 +346,36 @@
     return mins >= 9 * 60 + 30 && mins < 16 * 60;
   }
 
+  function setPillLabel(el, prefix, value) {
+    if (!el) return;
+    const valueEl = document.createElement("span");
+    valueEl.className = "pill-value";
+    valueEl.textContent = value;
+    el.replaceChildren(document.createTextNode(prefix + " "), valueEl);
+  }
+
+  function syncStatusPillWidths() {
+    const pills = [els.market, els.synthToggle].filter(Boolean);
+    if (pills.length < 2) return;
+    pills.forEach((p) => {
+      p.style.width = "max-content";
+    });
+    const width = Math.ceil(
+      Math.max(...pills.map((p) => p.getBoundingClientRect().width))
+    );
+    if (!Number.isFinite(width) || width <= 0) return;
+    pills.forEach((p) => {
+      p.style.width = width + "px";
+    });
+  }
+
   function updateMarketBadge() {
     const open = isNyseOpen();
     els.market.classList.toggle("is-open", open);
     els.market.classList.toggle("is-closed", !open);
-    els.marketLabel.textContent = open ? "Market open" : "Market closed";
+    setPillLabel(els.marketLabel, "Market", open ? "open" : "closed");
     els.market.setAttribute("aria-label", open ? "Market is open" : "Market is closed");
+    syncStatusPillWidths();
     return open;
   }
 
@@ -1416,9 +1440,8 @@
     if (els.synthToggle) {
       els.synthToggle.setAttribute("aria-pressed", on ? "true" : "false");
     }
-    if (els.synthLabel) {
-      els.synthLabel.textContent = on ? "Demo mode ON" : "Demo mode OFF";
-    }
+    setPillLabel(els.synthLabel, "Demo mode", on ? "ON" : "OFF");
+    syncStatusPillWidths();
   }
 
   function setSynthetic(on) {
