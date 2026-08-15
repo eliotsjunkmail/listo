@@ -1,38 +1,56 @@
 (() => {
-  const STORAGE_KEY = "holdings-v2";
+  const STORAGE_KEY = "frogger-stocks-v1";
+  const BUY_DOLLARS = 1000;
   const DEFAULTS = {
-    symbol: "SNAP",
-    shares: 130000,
-    assets: 3530000,
-    target: 5000000,
-    distribution: 0.04,
+    symbols: ["SNAP", "META", "GOOG"],
+    synthetic: true,
+  };
+
+  const SYNTH_BASE = {
+    SNAP: { open: 10.4, last: 10.4, spread: 0.04 },
+    META: { open: 512, last: 512, spread: 0.35 },
+    GOOG: { open: 178, last: 178, spread: 0.12 },
   };
 
   const els = {
-    fill: document.getElementById("fill"),
-    value: document.getElementById("value"),
-    dist: document.getElementById("dist"),
-    story: document.getElementById("story"),
+    world: document.getElementById("world"),
+    river: document.getElementById("river"),
+    frog: document.getElementById("frog"),
     gear: document.getElementById("gear"),
     scrim: document.getElementById("scrim"),
     panel: document.getElementById("panel"),
-    symbol: document.getElementById("symbol"),
-    shares: document.getElementById("shares"),
-    assets: document.getElementById("assets"),
-    target: document.getElementById("target"),
-    distribution: document.getElementById("distribution"),
-    slider: document.getElementById("price-slider"),
-    slideNow: document.getElementById("slide-now"),
+    symA: document.getElementById("sym-a"),
+    symB: document.getElementById("sym-b"),
+    symC: document.getElementById("sym-c"),
     market: document.getElementById("market"),
     marketLabel: document.getElementById("market-label"),
+    synthToggle: document.getElementById("synth-toggle"),
+    synthLabel: document.getElementById("synth-label"),
+    hudCash: document.getElementById("hud-cash"),
+    hudBuys: document.getElementById("hud-buys"),
+    toast: document.getElementById("toast"),
+    pad: document.getElementById("pad"),
+    logs: [0, 1, 2].map((i) => ({
+      el: document.getElementById("log-" + i),
+      sym: document.getElementById("sym-" + i),
+      last: document.getElementById("last-" + i),
+      chg: document.getElementById("chg-" + i),
+    })),
   };
 
-  const SLIDER_MAX = 26.37;
-  let sliding = false;
-  let sliderPrice = null;
+  /** @type {{symbol:string, open:number, last:number, bid:number, ask:number, change:number}[]} */
+  let quotes = DEFAULTS.symbols.map((symbol) => seedQuote(symbol));
 
-  /** @type {{symbol?:string, price:number|null, change:number|null, time:Date|null}|null} */
-  let quote = null;
+  /** lane: -1 bottom bank, 0..2 river, 3 top bank */
+  let frogLane = -1;
+  let frogX = 0.5;
+  let riding = false;
+  let busy = false;
+  let toastTimer = 0;
+  let synthTimer = 0;
+
+  /** @type {Record<string, {shares:number, spent:number, buys:number}>} */
+  let portfolio = {};
 
   const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -56,14 +74,27 @@
       "; Path=/; SameSite=Lax";
   }
 
+  function normalizeSymbol(raw, fallback) {
+    const s = String(raw || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z.]/g, "")
+      .slice(0, 8);
+    return s || fallback;
+  }
+
   function parseSettings(raw) {
     const parsed = JSON.parse(raw);
+    const symbols = Array.isArray(parsed.symbols)
+      ? parsed.symbols
+      : [parsed.symA, parsed.symB, parsed.symC];
     return {
-      symbol: String(parsed.symbol || DEFAULTS.symbol).toUpperCase(),
-      shares: Number(parsed.shares) > 0 ? Number(parsed.shares) : DEFAULTS.shares,
-      assets: Number(parsed.assets) >= 0 ? Number(parsed.assets) : DEFAULTS.assets,
-      target: Number(parsed.target) > 0 ? Number(parsed.target) : DEFAULTS.target,
-      distribution: normalizeRate(parsed.distribution),
+      symbols: [
+        normalizeSymbol(symbols?.[0], DEFAULTS.symbols[0]),
+        normalizeSymbol(symbols?.[1], DEFAULTS.symbols[1]),
+        normalizeSymbol(symbols?.[2], DEFAULTS.symbols[2]),
+      ],
+      synthetic: Boolean(parsed.synthetic),
     };
   }
 
@@ -78,26 +109,9 @@
         return cfg;
       }
     } catch {
-      /* use defaults */
+      /* defaults */
     }
-    return { ...DEFAULTS };
-  }
-
-  function readForm() {
-    return {
-      symbol: (els.symbol.value || DEFAULTS.symbol).trim().toUpperCase() || DEFAULTS.symbol,
-      shares: Math.max(0, Number(els.shares.value) || 0),
-      assets: Math.max(0, Number(els.assets.value) || 0),
-      target: Math.max(1, Number(els.target.value) || DEFAULTS.target),
-      distribution: normalizeRate(els.distribution.value),
-    };
-  }
-
-  function normalizeRate(raw) {
-    let n = Number(raw);
-    if (!Number.isFinite(n) || n < 0) return DEFAULTS.distribution;
-    if (n > 1) n = n / 100;
-    return n;
+    return { symbols: [...DEFAULTS.symbols], synthetic: DEFAULTS.synthetic };
   }
 
   function persist(cfg) {
@@ -106,56 +120,43 @@
     try {
       localStorage.setItem(STORAGE_KEY, payload);
     } catch {
-      /* cookie is the source of truth */
+      /* ignore */
     }
   }
 
-  function compactMoney(n) {
-    if (n == null || Number.isNaN(n)) return "—";
-    const abs = Math.abs(n);
-    const sign = n < 0 ? "−" : "";
-    if (abs >= 1e6) {
-      const m = abs / 1e6;
-      const digits = m >= 10 ? 1 : 2;
-      return sign + "$" + m.toFixed(digits).replace(/\.0$/, "") + "M";
-    }
-    if (abs >= 1e3) {
-      const k = abs / 1e3;
-      const digits = k >= 100 ? 0 : 1;
-      return sign + "$" + k.toFixed(digits).replace(/\.0$/, "") + "K";
-    }
-    return (
-      sign +
-      "$" +
-      Math.round(abs).toLocaleString("en-US")
-    );
-  }
-
-  function compactK(n) {
-    if (n == null || Number.isNaN(n)) return "—";
-    const k = Math.abs(n) / 1e3;
-    const digits = k >= 100 ? 0 : 1;
-    return (n < 0 ? "−" : "") + "$" + k.toFixed(digits).replace(/\.0$/, "") + "K";
+  function seedQuote(symbol) {
+    const base = SYNTH_BASE[symbol] || {
+      open: 100,
+      last: 100,
+      spread: 0.08,
+    };
+    const half = base.spread / 2;
+    return {
+      symbol,
+      open: base.open,
+      last: base.last,
+      bid: base.last - half,
+      ask: base.last + half,
+      change: 0,
+    };
   }
 
   function slimPrice(n) {
-    if (n == null || Number.isNaN(n) || !Number.isFinite(n)) return "—";
+    if (n == null || !Number.isFinite(n)) return "—";
     const abs = Math.abs(n);
-    const formatted = abs.toFixed(2).replace(/\.?0+$/, "");
-    const body = formatted.includes(".") ? formatted : abs.toFixed(1);
+    let body;
+    if (abs >= 100) body = abs.toFixed(2);
+    else if (abs >= 10) body = abs.toFixed(2);
+    else body = abs.toFixed(2);
     return (n < 0 ? "−" : "") + body;
   }
 
-  function clock(date) {
-    if (!date) return "";
-    return date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      timeZone: "America/New_York",
-    });
+  function slimChange(n) {
+    if (n == null || !Number.isFinite(n)) return "";
+    const sign = n > 0 ? "+" : n < 0 ? "−" : "";
+    return sign + Math.abs(n).toFixed(2);
   }
 
-  /** NYSE regular session: Mon–Fri 9:30–16:00 America/New_York */
   function isNyseOpen(now = new Date()) {
     const parts = new Intl.DateTimeFormat("en-US", {
       timeZone: "America/New_York",
@@ -169,7 +170,6 @@
     if (weekday === "Sat" || weekday === "Sun") return false;
     let hour = Number(get("hour"));
     const minute = Number(get("minute"));
-    // Some engines emit "24" for midnight
     if (hour === 24) hour = 0;
     const mins = hour * 60 + minute;
     return mins >= 9 * 60 + 30 && mins < 16 * 60;
@@ -177,7 +177,6 @@
 
   function updateMarketBadge() {
     const open = isNyseOpen();
-    if (!els.market || !els.marketLabel) return open;
     els.market.classList.toggle("is-open", open);
     els.market.classList.toggle("is-closed", !open);
     els.marketLabel.textContent = open ? "NYSE open" : "NYSE closed";
@@ -189,7 +188,7 @@
     return (
       "https://query2.finance.yahoo.com/v8/finance/chart/" +
       encodeURIComponent(symbol) +
-      "?interval=5m&range=1d&includePrePost=false"
+      "?interval=1m&range=1d&includePrePost=false"
     );
   }
 
@@ -219,7 +218,6 @@
       async () =>
         fetchJson("https://api.codetabs.com/v1/proxy/?quest=" + encodeURIComponent(url)),
     ];
-
     let lastErr;
     for (const attempt of attempts) {
       try {
@@ -231,187 +229,345 @@
         lastErr = err;
       }
     }
-    throw lastErr || new Error("All quote sources failed");
+    throw lastErr || new Error("quote failed");
   }
 
-  function parseQuote(result) {
+  function parseQuote(result, symbol) {
     const meta = result.meta;
     const quoteData = result.indicators?.quote?.[0] || {};
     const closes = (quoteData.close || []).filter((v) => v != null);
-    const price = meta.regularMarketPrice ?? closes[closes.length - 1];
-    const prev = meta.chartPreviousClose ?? meta.previousClose;
-    const change = price != null && prev != null ? price - prev : null;
+    const last = Number(meta.regularMarketPrice ?? closes[closes.length - 1]);
+    const open = Number(
+      meta.regularMarketOpen ?? meta.chartPreviousClose ?? meta.previousClose ?? last
+    );
+    const prev = Number(meta.chartPreviousClose ?? meta.previousClose ?? open);
+    let bid = Number(meta.bid);
+    let ask = Number(meta.ask);
+    if (!Number.isFinite(bid) || !Number.isFinite(ask) || ask <= bid) {
+      const spread = Math.max(last * 0.0008, 0.01);
+      bid = last - spread / 2;
+      ask = last + spread / 2;
+    }
     return {
-      symbol: meta.symbol,
-      price,
-      change,
-      time: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000) : new Date(),
+      symbol: meta.symbol || symbol,
+      open: Number.isFinite(open) ? open : last,
+      last,
+      bid,
+      ask,
+      change: Number.isFinite(last) && Number.isFinite(prev) ? last - prev : 0,
     };
   }
 
-  function render() {
-    const { shares, assets, target, symbol, distribution } = loadSettings();
-    const livePrice = quote?.price ?? null;
-    const price = sliderPrice != null ? sliderPrice : livePrice;
-    const stockValue = price != null ? price * shares : null;
-    const value = stockValue != null ? stockValue + assets : null;
-    const pct = value != null && target > 0 ? Math.min(100, (value / target) * 100) : 0;
-    const neededFromStock = target - assets;
-    const goalPrice = shares > 0 ? neededFromStock / shares : null;
-    const yearly = value != null ? value * distribution : null;
+  function pxPerDollar(open, width) {
+    const band = Math.max(open * 0.04, 0.5);
+    return (width * 0.42) / band;
+  }
 
-    els.value.textContent = compactMoney(value);
-    els.dist.textContent = yearly == null ? "" : compactMoney(yearly);
+  function layoutLogs() {
+    const width = els.world.clientWidth || window.innerWidth;
+    const center = width / 2;
+    const minW = 150;
 
-    if (!quote || quote.price == null) {
-      els.story.textContent = "";
+    quotes.forEach((q, i) => {
+      const log = els.logs[i];
+      if (!log?.el || !q || !Number.isFinite(q.last) || !Number.isFinite(q.open)) return;
+
+      const scale = pxPerDollar(q.open, width);
+      let leftEdge = center + (q.bid - q.open) * scale;
+      let rightEdge = center + (q.ask - q.open) * scale;
+      if (rightEdge - leftEdge < minW) {
+        const mid = center + (q.last - q.open) * scale;
+        leftEdge = mid - minW / 2;
+        rightEdge = mid + minW / 2;
+      }
+      const w = rightEdge - leftEdge;
+      let placedMid = (leftEdge + rightEdge) / 2;
+      // Keep at least ~35% of the log on-screen so it stays jumpable.
+      const margin = w * 0.35;
+      placedMid = Math.min(width - margin, Math.max(margin, placedMid));
+
+      log.el.style.width = w + "px";
+      log.el.style.left = placedMid + "px";
+      log.sym.textContent = q.symbol;
+      log.last.textContent = slimPrice(q.last);
+      log.chg.textContent = slimChange(q.change);
+      log.el.classList.toggle("is-up", q.change > 0.004);
+      log.el.classList.toggle("is-down", q.change < -0.004);
+    });
+
+    placeFrog();
+  }
+
+  function laneY(lane) {
+    const riverTop = els.river.offsetTop;
+    const riverH = els.river.clientHeight;
+    const worldH = els.world.clientHeight;
+    const frog = els.frog.offsetHeight || 44;
+
+    if (lane < 0) {
+      return worldH - frog - Math.max(18, worldH * 0.09 - 10);
+    }
+    if (lane > 2) {
+      return Math.max(12, worldH * 0.09 - frog / 2);
+    }
+    const laneH = riverH / 3;
+    return riverTop + lane * laneH + laneH / 2 - frog / 2;
+  }
+
+  function placeFrog() {
+    const frog = els.frog;
+    const worldW = els.world.clientWidth;
+    const worldBox = els.world.getBoundingClientRect();
+    const size = frog.offsetWidth || 44;
+
+    if (riding && frogLane >= 0 && frogLane <= 2) {
+      const logBox = els.logs[frogLane].el.getBoundingClientRect();
+      const mid = logBox.left + logBox.width / 2 - worldBox.left;
+      frog.style.left = mid + "px";
+      frogX = mid / worldW;
     } else {
-      const direction =
-        (quote.change ?? 0) > 0.004 ? "up" : (quote.change ?? 0) < -0.004 ? "down" : "unchanged";
-      const moveWord = direction === "up" ? "up " : "down ";
-      const move =
-        quote.change == null
-          ? ""
-          : direction === "unchanged"
-            ? "flat"
-            : moveWord + "<strong>" + slimPrice(Math.abs(quote.change)) + "</strong>";
-      const asOf = quote.time ? " as of <strong>" + clock(quote.time) + "</strong>" : "";
-      const first =
-        symbol +
-        " is " +
-        direction +
-        ". Trading at <strong>" +
-        slimPrice(quote.price) +
-        "</strong>" +
-        (move ? ", " + move + " for today" : "") +
-        asOf +
-        ". The " +
-        symbol +
-        " holding is valued at <strong>" +
-        compactK(stockValue) +
-        "</strong>.";
-      let second;
-      if (goalPrice == null) {
-        second = "";
-      } else if (neededFromStock <= 0) {
-        second =
-          " You've already reached your target of <strong>" +
-          compactMoney(target).replace("$", "") +
-          "</strong>.";
+      const x = Math.min(worldW - size / 2 - 8, Math.max(size / 2 + 8, frogX * worldW));
+      frog.style.left = x + "px";
+    }
+
+    frog.style.top = laneY(frogLane) + "px";
+    frog.style.bottom = "auto";
+  }
+
+  function showToast(msg) {
+    els.toast.hidden = false;
+    els.toast.textContent = msg;
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(() => {
+      els.toast.hidden = true;
+    }, 1600);
+  }
+
+  function updateHud() {
+    const entries = Object.entries(portfolio);
+    if (!entries.length) {
+      els.hudCash.textContent = "Jump a log to buy $1,000";
+      els.hudBuys.textContent = "";
+      return;
+    }
+    const spent = entries.reduce((s, [, p]) => s + p.spent, 0);
+    els.hudCash.textContent = "Bought $" + spent.toLocaleString("en-US") + " total";
+    els.hudBuys.textContent = entries
+      .map(([sym, p]) => sym + " " + p.shares.toFixed(p.shares >= 10 ? 1 : 2) + " sh")
+      .join(" · ");
+  }
+
+  function buyOnLog(index) {
+    const q = quotes[index];
+    if (!q || !Number.isFinite(q.last) || q.last <= 0) return;
+    const price = q.last;
+    const shares = BUY_DOLLARS / price;
+    const bag = portfolio[q.symbol] || { shares: 0, spent: 0, buys: 0 };
+    bag.shares += shares;
+    bag.spent += BUY_DOLLARS;
+    bag.buys += 1;
+    portfolio[q.symbol] = bag;
+    updateHud();
+    showToast("Bought $" + BUY_DOLLARS + " " + q.symbol + " @ " + slimPrice(price));
+  }
+
+  function frogOverlapsLog(index) {
+    const frog = els.frog.getBoundingClientRect();
+    const log = els.logs[index].el.getBoundingClientRect();
+    const pad = 8;
+    return frog.left + pad < log.right && frog.right - pad > log.left;
+  }
+
+  function splash() {
+    showToast("Missed the log — splash!");
+    frogLane = -1;
+    riding = false;
+    frogX = 0.5;
+    placeFrog();
+  }
+
+  function move(dir) {
+    if (busy || !els.scrim.hidden) return;
+    busy = true;
+    els.frog.classList.add("is-jumping");
+
+    if (dir === "left") {
+      frogX = Math.max(0.08, frogX - 0.08);
+      riding = false;
+    } else if (dir === "right") {
+      frogX = Math.min(0.92, frogX + 0.08);
+      riding = false;
+    } else if (dir === "up") {
+      const next = Math.min(3, frogLane + 1);
+      if (next >= 0 && next <= 2) {
+        frogLane = next;
+        placeFrog();
+        if (frogOverlapsLog(next)) {
+          riding = true;
+          buyOnLog(next);
+        } else {
+          riding = false;
+          splash();
+          busy = false;
+          els.frog.classList.remove("is-jumping");
+          return;
+        }
       } else {
-        second =
-          " When " +
-          symbol +
-          " gets to <strong>" +
-          slimPrice(goalPrice) +
-          "</strong> you will reach your target of <strong>" +
-          compactMoney(target).replace("$", "") +
-          "</strong>.";
+        frogLane = next;
+        riding = false;
       }
-      els.story.innerHTML = first + second;
+    } else if (dir === "down") {
+      const next = Math.max(-1, frogLane - 1);
+      if (frogLane >= 0 && frogLane <= 2 && next >= 0 && next <= 2) {
+        frogLane = next;
+        placeFrog();
+        if (frogOverlapsLog(next)) {
+          riding = true;
+          buyOnLog(next);
+        } else {
+          riding = false;
+          splash();
+          busy = false;
+          els.frog.classList.remove("is-jumping");
+          return;
+        }
+      } else {
+        frogLane = next;
+        riding = false;
+      }
     }
 
-    els.fill.style.height = pct + "%";
-    els.fill.classList.toggle("is-done", pct >= 100);
-    document.title = compactMoney(value);
+    placeFrog();
+    window.setTimeout(() => {
+      els.frog.classList.remove("is-jumping");
+      busy = false;
+    }, 220);
+  }
 
-    if (els.slider && !sliding && livePrice != null) {
-      els.slider.value = String(Math.min(SLIDER_MAX, Math.max(0, livePrice)));
-      sliderPrice = Number(els.slider.value);
-    }
-    if (els.slideNow) {
-      const shown = sliderPrice != null ? sliderPrice : livePrice;
-      els.slideNow.textContent = shown == null ? "" : slimPrice(shown);
-      positionBubble();
+  function tickSynthetic() {
+    quotes = quotes.map((q) => {
+      const vol = Math.max(q.open * 0.0007, 0.008);
+      const towardOpen = (q.open - q.last) * 0.04;
+      const drift = (Math.random() - 0.5) * vol * 3 + towardOpen;
+      let last = Math.max(0.5, q.last + drift);
+      // Soft clamp day move so logs stay near the play field.
+      const maxMove = q.open * 0.035;
+      last = Math.min(q.open + maxMove, Math.max(q.open - maxMove, last));
+      const half = Math.max(q.open * 0.00045, 0.01) * (0.8 + Math.random() * 0.6);
+      return {
+        ...q,
+        last,
+        bid: last - half,
+        ask: last + half,
+        change: last - q.open,
+      };
+    });
+    layoutLogs();
+  }
+
+  function setSynthetic(on) {
+    const cfg = loadSettings();
+    cfg.synthetic = on;
+    persist(cfg);
+    els.synthToggle.setAttribute("aria-pressed", on ? "true" : "false");
+    els.synthLabel.textContent = on ? "Synthetic on" : "Synthetic off";
+    window.clearInterval(synthTimer);
+    if (on) {
+      quotes = cfg.symbols.map((s) => {
+        const existing = quotes.find((q) => q.symbol === s);
+        return existing && Number.isFinite(existing.last) ? existing : seedQuote(s);
+      });
+      // nudge so logs aren't all centered
+      quotes = quotes.map((q, i) => {
+        const nudge = (i - 1) * q.open * 0.008;
+        const last = q.last + nudge;
+        const half = Math.max(q.open * 0.0005, 0.02);
+        return {
+          ...q,
+          last,
+          bid: last - half,
+          ask: last + half,
+          change: last - q.open,
+        };
+      });
+      layoutLogs();
+      synthTimer = window.setInterval(tickSynthetic, 900);
+    } else {
+      refresh(true);
     }
   }
 
-  function positionBubble() {
-    const slider = els.slider;
-    const bubble = els.slideNow;
-    if (!slider || !bubble) return;
-    const min = Number(slider.min);
-    const max = Number(slider.max);
-    const val = Number(slider.value);
-    const pct = max === min ? 0 : (val - min) / (max - min);
-    const thumb = 28;
-    const x = pct * (slider.clientWidth - thumb) + thumb / 2;
-    bubble.style.left = x + "px";
-  }
-
-  async function refresh() {
-    const initial = !quote;
-    const started = Date.now();
-    if (initial) document.body.classList.remove("is-ready");
+  async function refresh(force) {
+    const cfg = loadSettings();
+    if (cfg.synthetic) return;
+    if (!force && !isNyseOpen() && quotes.every((q) => Number.isFinite(q.last))) {
+      layoutLogs();
+      return;
+    }
     try {
-      quote = parseQuote(await loadYahoo(loadSettings().symbol));
-      if (quote.symbol) {
-        const cfg = loadSettings();
-        cfg.symbol = quote.symbol;
-        persist(cfg);
-        els.symbol.value = quote.symbol;
-      }
-      if (quote.price != null && !sliding) {
-        sliderPrice = Math.min(SLIDER_MAX, Math.max(0, quote.price));
-        els.slider.value = String(sliderPrice);
-      }
-      render();
+      const results = await Promise.all(
+        cfg.symbols.map(async (symbol) => {
+          try {
+            return parseQuote(await loadYahoo(symbol), symbol);
+          } catch (err) {
+            console.error(symbol, err);
+            return quotes.find((q) => q.symbol === symbol) || seedQuote(symbol);
+          }
+        })
+      );
+      quotes = results;
+      layoutLogs();
     } catch (err) {
-      els.story.textContent = "Could not load quote";
       console.error(err);
-    } finally {
-      const wait = initial ? Math.max(0, 700 - (Date.now() - started)) : 0;
-      window.setTimeout(() => {
-        document.body.classList.add("is-ready");
-        positionBubble();
-      }, wait);
     }
   }
 
   function openSettings() {
     const cfg = loadSettings();
-    els.symbol.value = cfg.symbol;
-    els.shares.value = String(cfg.shares);
-    els.assets.value = String(cfg.assets);
-    els.target.value = String(cfg.target);
-    els.distribution.value = String(cfg.distribution);
+    els.symA.value = cfg.symbols[0];
+    els.symB.value = cfg.symbols[1];
+    els.symC.value = cfg.symbols[2];
     els.scrim.hidden = false;
-    els.symbol.focus();
+    els.symA.focus();
   }
 
   function closeSettings(save) {
     if (save) {
-      const next = readForm();
-      const prev = loadSettings();
+      const next = {
+        symbols: [
+          normalizeSymbol(els.symA.value, DEFAULTS.symbols[0]),
+          normalizeSymbol(els.symB.value, DEFAULTS.symbols[1]),
+          normalizeSymbol(els.symC.value, DEFAULTS.symbols[2]),
+        ],
+        synthetic: loadSettings().synthetic,
+      };
       persist(next);
-      if (next.symbol !== prev.symbol) refresh();
-      else render();
+      portfolio = {};
+      updateHud();
+      quotes = next.symbols.map((s) => seedQuote(s));
+      if (next.synthetic) setSynthetic(true);
+      else refresh(true);
     }
     els.scrim.hidden = true;
   }
 
+  // boot
   const saved = loadSettings();
-  els.symbol.value = saved.symbol;
-  els.shares.value = String(saved.shares);
-  els.assets.value = String(saved.assets);
-  els.target.value = String(saved.target);
-  els.distribution.value = String(saved.distribution);
-  els.slider.max = String(SLIDER_MAX);
+  els.symA.value = saved.symbols[0];
+  els.symB.value = saved.symbols[1];
+  els.symC.value = saved.symbols[2];
+  quotes = saved.symbols.map((s) => seedQuote(s));
 
-  els.slider.addEventListener("pointerdown", () => {
-    sliding = true;
-  });
-  window.addEventListener("pointerup", () => {
-    sliding = false;
-  });
-  els.slider.addEventListener("input", () => {
-    sliding = true;
-    sliderPrice = Number(els.slider.value);
-    render();
-  });
-  window.addEventListener("resize", positionBubble);
+  frogX = 0.5;
+  placeFrog();
+  updateHud();
+  updateMarketBadge();
+  layoutLogs();
 
-  render();
+  els.synthToggle.addEventListener("click", () => {
+    const on = els.synthToggle.getAttribute("aria-pressed") !== "true";
+    setSynthetic(on);
+  });
 
   els.gear.addEventListener("click", openSettings);
   els.scrim.addEventListener("click", (e) => {
@@ -421,15 +577,58 @@
     e.preventDefault();
     closeSettings(true);
   });
+
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !els.scrim.hidden) closeSettings(true);
+    if (!els.scrim.hidden) {
+      if (e.key === "Escape") closeSettings(true);
+      return;
+    }
+    const map = {
+      ArrowUp: "up",
+      ArrowDown: "down",
+      ArrowLeft: "left",
+      ArrowRight: "right",
+      w: "up",
+      W: "up",
+      s: "down",
+      S: "down",
+      a: "left",
+      A: "left",
+      d: "right",
+      D: "right",
+    };
+    const dir = map[e.key];
+    if (!dir) return;
+    e.preventDefault();
+    move(dir);
   });
 
-  updateMarketBadge();
-  refresh();
+  els.pad.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-dir]");
+    if (!btn) return;
+    move(btn.getAttribute("data-dir"));
+  });
+
+  window.addEventListener("resize", () => {
+    layoutLogs();
+  });
+
+  // ride with log each frame when attached
+  window.setInterval(() => {
+    if (riding) placeFrog();
+  }, 100);
+
+  if (saved.synthetic) {
+    setSynthetic(true);
+  } else {
+    els.synthToggle.setAttribute("aria-pressed", "false");
+    els.synthLabel.textContent = "Synthetic off";
+    refresh(true);
+  }
 
   setInterval(() => {
-    const open = updateMarketBadge();
-    if (open) refresh();
+    updateMarketBadge();
+    const cfg = loadSettings();
+    if (!cfg.synthetic && isNyseOpen()) refresh(false);
   }, 60_000);
 })();

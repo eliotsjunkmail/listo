@@ -4,54 +4,82 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta http-equiv="Cache-Control" content="no-cache" />
-    <title>Holdings</title>
+    <title>Listo Frogger</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=22" />
+    <link rel="stylesheet" href="styles.css?v=31" />
   </head>
   <body>
-    <div class="fill" id="fill" aria-hidden="true"></div>
+    <button type="button" class="synth-toggle" id="synth-toggle" aria-pressed="false">
+      <span class="synth-dot" aria-hidden="true"></span>
+      <span id="synth-label">Synthetic off</span>
+    </button>
 
     <div class="market" id="market" aria-live="polite">
       <span class="market-dot" aria-hidden="true"></span>
       <span class="market-label" id="market-label">NYSE</span>
     </div>
 
-    <main class="stage" aria-live="polite">
-      <div class="spinner" id="spinner" role="status" aria-label="Loading quote"></div>
-      <div class="figures" id="figures">
-        <p class="value" id="value">—</p>
-        <p class="dist" id="dist"></p>
-        <p class="story" id="story"></p>
-      </div>
-    </main>
+    <header class="hud" aria-live="polite">
+      <p class="hud-title">Listo</p>
+      <p class="hud-line" id="hud-cash">Jump a log to buy $1,000</p>
+      <p class="hud-buys" id="hud-buys"></p>
+    </header>
 
-    <div class="slide-dock" id="slide-dock">
-      <div class="slide-wrap">
-        <div class="slide-bubble" id="slide-now"></div>
-        <input
-          id="price-slider"
-          class="slider"
-          type="range"
-          min="0"
-          max="26.37"
-          step="0.01"
-          value="0"
-          aria-label="SNAP price"
-        />
-        <div class="slide-scale">
-          <span>0</span>
-          <span>26.37</span>
+    <div class="toast" id="toast" hidden></div>
+
+    <div class="world" id="world">
+      <div class="bank bank-top" aria-hidden="true"></div>
+
+      <div class="river" id="river">
+        <div class="lane" data-lane="0">
+          <div class="log" id="log-0" data-index="0">
+            <div class="log-wood">
+              <span class="log-sym" id="sym-0">SNAP</span>
+              <span class="log-last" id="last-0">—</span>
+              <span class="log-chg" id="chg-0"></span>
+            </div>
+          </div>
         </div>
+        <div class="lane" data-lane="1">
+          <div class="log" id="log-1" data-index="1">
+            <div class="log-wood">
+              <span class="log-sym" id="sym-1">META</span>
+              <span class="log-last" id="last-1">—</span>
+              <span class="log-chg" id="chg-1"></span>
+            </div>
+          </div>
+        </div>
+        <div class="lane" data-lane="2">
+          <div class="log" id="log-2" data-index="2">
+            <div class="log-wood">
+              <span class="log-sym" id="sym-2">GOOG</span>
+              <span class="log-last" id="last-2">—</span>
+              <span class="log-chg" id="chg-2"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bank bank-bottom" aria-hidden="true"></div>
+      <div class="frog" id="frog" aria-label="Frog" role="img"></div>
+    </div>
+
+    <div class="pad" id="pad" aria-label="Controls">
+      <button type="button" class="pad-btn" data-dir="up" aria-label="Jump up">▲</button>
+      <div class="pad-mid">
+        <button type="button" class="pad-btn" data-dir="left" aria-label="Move left">◀</button>
+        <button type="button" class="pad-btn" data-dir="down" aria-label="Jump down">▼</button>
+        <button type="button" class="pad-btn" data-dir="right" aria-label="Move right">▶</button>
       </div>
     </div>
 
     <button type="button" class="gear" id="gear" aria-label="Settings">
-      <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">
         <path
           fill="currentColor"
           d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.59.22-1.14.53-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.83 14.16a.5.5 0 0 0-.12.64l1.92 3.32c.13.23.4.32.64.22l2.39-.96c.49.41 1.04.72 1.63.94l.36 2.54c.05.24.25.42.49.42h3.8c.24 0 .44-.18.49-.42l.36-2.54c.59-.22 1.14-.53 1.63-.94l2.39.96c.24.1.51.01.64-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"
@@ -61,31 +89,23 @@
 
     <div class="scrim" id="scrim" hidden>
       <form class="panel" id="panel">
-        <h2>Settings</h2>
+        <h2>Stocks</h2>
         <label>
-          Symbol
-          <input id="symbol" type="text" maxlength="8" spellcheck="false" autocomplete="off" />
+          Lane 1
+          <input id="sym-a" type="text" maxlength="8" spellcheck="false" autocomplete="off" />
         </label>
         <label>
-          Shares
-          <input id="shares" type="number" min="0" step="1" />
+          Lane 2
+          <input id="sym-b" type="text" maxlength="8" spellcheck="false" autocomplete="off" />
         </label>
         <label>
-          Additional assets ($)
-          <input id="assets" type="number" min="0" step="1" />
-        </label>
-        <label>
-          Target ($)
-          <input id="target" type="number" min="1" step="1" />
-        </label>
-        <label>
-          Allowable distribution / year
-          <input id="distribution" type="number" min="0" max="1" step="0.01" />
+          Lane 3
+          <input id="sym-c" type="text" maxlength="8" spellcheck="false" autocomplete="off" />
         </label>
         <button type="submit" class="done">Done</button>
       </form>
     </div>
 
-    <script src="app.js?v=22"></script>
+    <script src="app.js?v=31"></script>
   </body>
 </html>

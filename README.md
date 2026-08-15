@@ -1,15 +1,13 @@
-# Holdings
+# Listo Frogger
 
-A minimal screen: total dollars, percent of target, and the share price needed to hit the goal. The yellow fill rises with progress.
+Three stock logs on a river. SNAP, META, and GOOG by default (editable in settings).
 
-Tap the settings icon (top right) to edit symbol, shares, additional assets, and target.
-
-Defaults:
-
-- SNAP × 130,000 shares
-- Additional assets: $3,530,000
-- Target: $5,000,000
+- Log **center** starts at screen center from the **open**, then drifts with the day’s **last**
+- Log **left** edge tracks the **bid**, **right** edge the **ask**
+- Jump onto a log (arrows / WASD / on-screen pad) to buy **$1,000** of that stock
+- Top-left toggle: **synthetic** quote walk for testing
+- Top-right: NYSE open/closed; live quotes refresh only during market hours
 
 ## Open
 
-https://eliotsjunkmail.github.io/listo/?v=14
+https://eliotsjunkmail.github.io/listo/?v=31
