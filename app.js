@@ -1,5 +1,5 @@
 (() => {
-  const STORAGE_KEY = "frogger-stocks-v1";
+  const STORAGE_KEY = "frogger-stocks-v2";
   const BUY_DOLLARS = 1000;
   const DEFAULTS = {
     symbols: ["SNAP", "META", "GOOG"],
@@ -287,8 +287,12 @@
     return (span * 0.42) / band;
   }
 
+  function isVertical() {
+    return loadSettings().orientation !== "horizontal";
+  }
+
   function applyOrientationClass() {
-    const vertical = loadSettings().orientation !== "horizontal";
+    const vertical = isVertical();
     document.body.classList.toggle("is-vertical", vertical);
     document.body.classList.toggle("is-horizontal", !vertical);
     return vertical;
@@ -297,6 +301,7 @@
   function layoutLogs() {
     const vertical = applyOrientationClass();
     const worldW = els.world.clientWidth || window.innerWidth;
+    const riverH = els.river.clientHeight || 300;
 
     quotes.forEach((q, i) => {
       const log = els.logs[i];
@@ -305,11 +310,11 @@
       if (!lane) return;
 
       if (vertical) {
-        const laneH = lane.clientHeight || 120;
+        // Columns: log rides the full river height. Price up → toward top.
+        const laneH = lane.clientHeight || riverH;
         const center = laneH / 2;
         const scale = pxPerDollar(q.open, laneH);
-        const minH = 64;
-        // Higher price → toward top of lane (smaller Y)
+        const minH = Math.max(110, laneH * 0.28);
         let topEdge = center - (q.ask - q.open) * scale;
         let botEdge = center - (q.bid - q.open) * scale;
         if (botEdge - topEdge < minH) {
@@ -319,11 +324,12 @@
         }
         const h = botEdge - topEdge;
         let placedMid = (topEdge + botEdge) / 2;
-        const margin = h * 0.3;
+        const margin = h * 0.28;
         placedMid = Math.min(laneH - margin, Math.max(margin, placedMid));
 
+        const colW = lane.clientWidth || worldW / 3;
         log.el.style.left = "50%";
-        log.el.style.width = Math.min(200, Math.max(110, worldW * 0.42)) + "px";
+        log.el.style.width = Math.min(colW * 0.72, 120) + "px";
         log.el.style.height = h + "px";
         log.el.style.top = placedMid + "px";
       } else {
@@ -359,10 +365,18 @@
     updateHud();
   }
 
-  /** Map frog lane (0=nearest/bottom) to DOM log index (0=top). */
+  /** Horizontal rows: lane 0=nearest maps to log index 2. Vertical columns: lane == log index. */
   function logIndexForLane(lane) {
     if (lane < 0 || lane > 2) return -1;
-    return 2 - lane;
+    return isVertical() ? lane : 2 - lane;
+  }
+
+  function columnFromFrogX() {
+    const river = els.river.getBoundingClientRect();
+    const world = els.world.getBoundingClientRect();
+    const x = frogX * (els.world.clientWidth || 1);
+    const rel = (x + world.left - river.left) / Math.max(1, river.width);
+    return Math.min(2, Math.max(0, Math.floor(rel * 3)));
   }
 
   function laneY(lane) {
@@ -377,8 +391,11 @@
     if (lane > 2) {
       return Math.max(12, worldH * 0.09 - frog / 2);
     }
+    if (isVertical()) {
+      // Resting Y before ride snap — mid river
+      return riverTop + riverH / 2 - frog / 2;
+    }
     const laneH = riverH / 3;
-    // lane 0 sits in the bottom river row (closest to the start bank)
     const row = 2 - lane;
     return riverTop + row * laneH + laneH / 2 - frog / 2;
   }
@@ -396,6 +413,13 @@
       const midY = logBox.top + logBox.height / 2 - worldBox.top - size / 2;
       frog.style.left = midX + "px";
       frog.style.top = midY + "px";
+      frogX = midX / worldW;
+    } else if (isVertical() && frogLane >= 0 && frogLane <= 2) {
+      const lane = els.logs[frogLane].el.parentElement;
+      const laneBox = lane.getBoundingClientRect();
+      const midX = laneBox.left + laneBox.width / 2 - worldBox.left;
+      frog.style.left = midX + "px";
+      frog.style.top = laneY(frogLane) + "px";
       frogX = midX / worldW;
     } else {
       const x = Math.min(worldW - size / 2 - 8, Math.max(size / 2 + 8, frogX * worldW));
@@ -513,7 +537,10 @@
     const frog = els.frog.getBoundingClientRect();
     const log = els.logs[index].el.getBoundingClientRect();
     const pad = 8;
-    return frog.left + pad < log.right && frog.right - pad > log.left;
+    const hitX = frog.left + pad < log.right && frog.right - pad > log.left;
+    if (!isVertical()) return hitX;
+    const hitY = frog.top + pad < log.bottom && frog.bottom - pad > log.top;
+    return hitX && hitY;
   }
 
   function splash() {
@@ -524,10 +551,80 @@
     placeFrog();
   }
 
+  function finishMove() {
+    placeFrog();
+    window.setTimeout(() => {
+      els.frog.classList.remove("is-jumping");
+      busy = false;
+    }, 220);
+  }
+
+  function tryBoard(logIdx, nextLane) {
+    frogLane = nextLane;
+    riding = true;
+    placeFrog();
+    if (isVertical() || frogOverlapsLog(logIdx)) {
+      landOnLog(logIdx);
+      finishMove();
+      return;
+    }
+    riding = false;
+    splash();
+    els.frog.classList.remove("is-jumping");
+    busy = false;
+  }
+
   function move(dir) {
     if (busy || !els.scrim.hidden) return;
     busy = true;
     els.frog.classList.add("is-jumping");
+
+    if (isVertical()) {
+      if (dir === "left" || dir === "right") {
+        if (frogLane < 0 || frogLane > 2) {
+          frogX = Math.min(0.92, Math.max(0.08, frogX + (dir === "right" ? 0.12 : -0.12)));
+          riding = false;
+          finishMove();
+          return;
+        }
+        const next = Math.min(2, Math.max(0, frogLane + (dir === "right" ? 1 : -1)));
+        if (next === frogLane) {
+          finishMove();
+          return;
+        }
+        tryBoard(next, next);
+        return;
+      }
+      if (dir === "up") {
+        if (frogLane < 0) {
+          const col = columnFromFrogX();
+          tryBoard(col, col);
+          return;
+        }
+        if (frogLane <= 2) {
+          frogLane = 3;
+          riding = false;
+          finishMove();
+          return;
+        }
+        finishMove();
+        return;
+      }
+      if (dir === "down") {
+        if (frogLane > 2) {
+          tryBoard(1, 1);
+          return;
+        }
+        if (frogLane >= 0 && frogLane <= 2) {
+          frogLane = -1;
+          riding = false;
+          finishMove();
+          return;
+        }
+        finishMove();
+        return;
+      }
+    }
 
     if (dir === "left") {
       frogX = Math.max(0.08, frogX - 0.08);
@@ -539,49 +636,23 @@
       const next = Math.min(3, frogLane + 1);
       const logIdx = logIndexForLane(next);
       if (logIdx >= 0) {
-        frogLane = next;
-        placeFrog();
-        if (frogOverlapsLog(logIdx)) {
-          riding = true;
-          landOnLog(logIdx);
-        } else {
-          riding = false;
-          splash();
-          busy = false;
-          els.frog.classList.remove("is-jumping");
-          return;
-        }
-      } else {
-        frogLane = next;
-        riding = false;
+        tryBoard(logIdx, next);
+        return;
       }
+      frogLane = next;
+      riding = false;
     } else if (dir === "down") {
       const next = Math.max(-1, frogLane - 1);
       const logIdx = logIndexForLane(next);
       if (logIdx >= 0) {
-        frogLane = next;
-        placeFrog();
-        if (frogOverlapsLog(logIdx)) {
-          riding = true;
-          landOnLog(logIdx);
-        } else {
-          riding = false;
-          splash();
-          busy = false;
-          els.frog.classList.remove("is-jumping");
-          return;
-        }
-      } else {
-        frogLane = next;
-        riding = false;
+        tryBoard(logIdx, next);
+        return;
       }
+      frogLane = next;
+      riding = false;
     }
 
-    placeFrog();
-    window.setTimeout(() => {
-      els.frog.classList.remove("is-jumping");
-      busy = false;
-    }, 220);
+    finishMove();
   }
 
   function tickSynthetic() {

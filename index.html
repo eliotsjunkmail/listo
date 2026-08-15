@@ -11,9 +11,9 @@
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=37" />
+    <link rel="stylesheet" href="styles.css?v=38" />
   </head>
-  <body>
+  <body class="is-vertical">
     <button type="button" class="synth-toggle" id="synth-toggle" aria-pressed="false">
       <span class="synth-dot" aria-hidden="true"></span>
       <span id="synth-label">Synthetic off</span>
@@ -122,14 +122,14 @@
         <label>
           Log motion
           <select id="orientation">
-            <option value="vertical">Vertical (up / down)</option>
-            <option value="horizontal">Horizontal (left / right)</option>
+            <option value="vertical">Vertical — logs move up / down</option>
+            <option value="horizontal">Horizontal — logs move left / right</option>
           </select>
         </label>
         <button type="submit" class="done">Done</button>
       </form>
     </div>
 
-    <script src="app.js?v=37"></script>
+    <script src="app.js?v=38"></script>
   </body>
 </html>
