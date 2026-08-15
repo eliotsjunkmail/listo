@@ -36,6 +36,7 @@
     hudBuys: document.getElementById("hud-buys"),
     toast: document.getElementById("toast"),
     pad: document.getElementById("pad"),
+    goal: document.getElementById("goal"),
     logs: [0, 1, 2].map((i) => ({
       el: document.getElementById("log-" + i),
       sym: document.getElementById("sym-" + i),
@@ -58,6 +59,7 @@
   let rideOffsetY = 0;
   let riding = false;
   let busy = false;
+  let reachedGoal = false;
   let toastTimer = 0;
   let synthTimer = 0;
 
@@ -524,6 +526,40 @@
     }
 
     frog.style.bottom = "auto";
+    checkGoal();
+  }
+
+  function frogOverlapsGoal() {
+    if (!els.goal || frogLane !== 3) return false;
+    const frog = els.frog.getBoundingClientRect();
+    const goal = els.goal.getBoundingClientRect();
+    const pad = 4;
+    return (
+      frog.left + pad < goal.right &&
+      frog.right - pad > goal.left &&
+      frog.top + pad < goal.bottom &&
+      frog.bottom - pad > goal.top
+    );
+  }
+
+  function checkGoal() {
+    if (reachedGoal || frogLane !== 3) {
+      if (frogLane !== 3 && els.goal) els.goal.classList.remove("is-hit");
+      return;
+    }
+    if (!frogOverlapsGoal()) return;
+    reachedGoal = true;
+    els.goal.classList.add("is-hit");
+    const value = holdingValue();
+    const msg =
+      value != null
+        ? "Target hit! Portfolio $" +
+          value.toLocaleString("en-US", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          })
+        : "Target reached!";
+    showToast(msg);
   }
 
   function frogCenter() {
@@ -668,6 +704,8 @@
     rideOffsetX = 0;
     rideOffsetY = 0;
     frogX = 0.5;
+    reachedGoal = false;
+    if (els.goal) els.goal.classList.remove("is-hit");
     placeFrog();
   }
 

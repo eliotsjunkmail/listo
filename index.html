@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=44" />
+    <link rel="stylesheet" href="styles.css?v=45" />
   </head>
   <body class="is-vertical">
     <button type="button" class="synth-toggle" id="synth-toggle" aria-pressed="false">
@@ -51,6 +51,10 @@
 
     <div class="world" id="world">
       <div class="bank bank-top" aria-hidden="true"></div>
+      <div class="goal" id="goal" aria-label="Target">
+        <span class="goal-pad" aria-hidden="true"></span>
+        <span class="goal-text">Target</span>
+      </div>
 
       <div class="river" id="river">
         <div class="lane" data-lane="0">
@@ -136,6 +140,6 @@
       </form>
     </div>
 
-    <script src="app.js?v=44"></script>
+    <script src="app.js?v=45"></script>
   </body>
 </html>
