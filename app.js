@@ -36,7 +36,6 @@
     hudBuys: document.getElementById("hud-buys"),
     toast: document.getElementById("toast"),
     pad: document.getElementById("pad"),
-    goal: document.getElementById("goal"),
     logs: [0, 1, 2].map((i) => ({
       el: document.getElementById("log-" + i),
       sym: document.getElementById("sym-" + i),
