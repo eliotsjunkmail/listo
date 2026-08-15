@@ -74,12 +74,21 @@ body {
   left: max(0.85rem, env(safe-area-inset-left));
   bottom: max(0.55rem, calc(env(safe-area-inset-bottom) + 0.35rem));
   z-index: 20;
+  margin: 0;
+  padding: 0.35rem 0.45rem;
+  border: 0;
+  background: transparent;
   font-family: var(--score-font);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   color: rgba(238, 246, 239, 0.55);
-  pointer-events: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.app-version:active {
+  color: rgba(238, 246, 239, 0.9);
 }
 
 .pace-slider {

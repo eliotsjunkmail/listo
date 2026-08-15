@@ -46,6 +46,7 @@
     hudBuys: document.getElementById("hud-buys"),
     toast: document.getElementById("toast"),
     pad: document.getElementById("pad"),
+    version: document.getElementById("app-version"),
     logs: [0, 1, 2, 3].map((i) => ({
       el: document.getElementById("log-" + i),
       sym: document.getElementById("sym-" + i),
@@ -1492,6 +1493,11 @@
   });
 
   els.gear.addEventListener("click", openSettings);
+  els.version?.addEventListener("click", () => {
+    const url = new URL(location.href);
+    url.searchParams.set("_", String(Date.now()));
+    location.replace(url.toString());
+  });
   els.scrim.addEventListener("click", (e) => {
     if (e.target === els.scrim) closeSettings(true);
   });
