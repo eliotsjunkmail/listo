@@ -365,6 +365,9 @@
 
     el.classList.remove("trail-left", "trail-right", "trail-top", "trail-bottom");
     const d = trailDir[i];
+    // Green when moving right/up (positive), red when moving left/down (negative)
+    el.classList.toggle("is-up", d > 0);
+    el.classList.toggle("is-down", d < 0);
     if (!d) return;
 
     // Price up → right (horizontal) or toward top (vertical). Wake sits behind motion.
@@ -447,8 +450,6 @@
       log.sym.textContent = q.symbol;
       log.last.textContent = slimPrice(q.last);
       log.chg.textContent = slimChange(q.change);
-      log.el.classList.toggle("is-up", q.change > 0.004);
-      log.el.classList.toggle("is-down", q.change < -0.004);
       updateLogTrail(i, q, vertical);
 
       // Draw fixed S/R from price levels (they stay put until a breakout)
