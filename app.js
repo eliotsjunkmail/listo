@@ -1,6 +1,8 @@
 (() => {
   const STORAGE_KEY = "frogger-stocks-v2";
+  const PLAYER_KEY = "frogger-player-name";
   const BUY_DOLLARS = 100_000;
+  const ROUND_MS = 60_000;
   const LANE_COUNT = 4;
   const LAST_LOG_LANE = LANE_COUNT - 1;
   const TOP_BANK_LANE = LANE_COUNT;
@@ -10,6 +12,7 @@
     pace: 4,
     orientation: "vertical",
     sound: true,
+    playerName: "",
   };
 
   const SYNTH_BASE = {
@@ -40,6 +43,7 @@
     orientationToggle: document.getElementById("orientation-toggle"),
     orientationLabel: document.getElementById("orientation-label"),
     soundOn: document.getElementById("sound-on"),
+    settingsPlayerName: document.getElementById("settings-player-name"),
     hudScore: document.getElementById("hud-score"),
     hudPnl: document.getElementById("hud-pnl"),
     hudChange: document.getElementById("hud-change"),
@@ -47,6 +51,20 @@
     toast: document.getElementById("toast"),
     pad: document.getElementById("pad"),
     version: document.getElementById("app-version"),
+    timer: document.getElementById("timer"),
+    timerBar: document.getElementById("timer-bar"),
+    timerLabel: document.getElementById("timer-label"),
+    roundScrim: document.getElementById("round-scrim"),
+    roundPanel: document.getElementById("round-panel"),
+    roundTitle: document.getElementById("round-title"),
+    roundCopy: document.getElementById("round-copy"),
+    playerName: document.getElementById("player-name"),
+    roundScore: document.getElementById("round-score"),
+    roundScoreValue: document.getElementById("round-score-value"),
+    leaderboard: document.getElementById("leaderboard"),
+    leaderboardList: document.getElementById("leaderboard-list"),
+    roundStatus: document.getElementById("round-status"),
+    roundPlay: document.getElementById("round-play"),
     logs: [0, 1, 2, 3].map((i) => ({
       el: document.getElementById("log-" + i),
       sym: document.getElementById("sym-" + i),
@@ -82,6 +100,11 @@
   let levelTipTimer = 0;
   /** @type {AudioContext|null} */
   let audioCtx = null;
+  /** @type {"idle"|"playing"|"ended"} */
+  let roundState = "idle";
+  let roundEndsAt = 0;
+  let roundRaf = 0;
+  let lastFinalScore = BUY_DOLLARS;
 
   /** @type {{symbol:string, shares:number, invested:number, entry:number}|null} */
   let holding = null;
@@ -123,6 +146,47 @@
     return s || fallback;
   }
 
+  function normalizePlayerName(raw) {
+    return String(raw || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 24);
+  }
+
+  function readStoredPlayerName() {
+    try {
+      const fromCookie = readCookie(PLAYER_KEY);
+      if (fromCookie) return normalizePlayerName(fromCookie);
+      const fromLocal = localStorage.getItem(PLAYER_KEY);
+      if (fromLocal) return normalizePlayerName(fromLocal);
+    } catch {
+      /* ignore */
+    }
+    return normalizePlayerName(loadSettings().playerName);
+  }
+
+  function persistPlayerName(name) {
+    const clean = normalizePlayerName(name);
+    writeCookie(PLAYER_KEY, clean);
+    try {
+      localStorage.setItem(PLAYER_KEY, clean);
+    } catch {
+      /* ignore */
+    }
+    const cfg = loadSettings();
+    cfg.playerName = clean;
+    persist(cfg);
+    return clean;
+  }
+
+  function supabaseConfig() {
+    const cfg = window.FROGGER_CONFIG || {};
+    const url = String(cfg.supabaseUrl || "").replace(/\/$/, "");
+    const key = String(cfg.supabaseAnonKey || "");
+    if (!url || !key) return null;
+    return { url, key };
+  }
+
   function clampPace(n) {
     const p = Math.round(Number(n));
     if (!Number.isFinite(p)) return DEFAULTS.pace;
@@ -146,6 +210,7 @@
       pace: clampPace(parsed.pace ?? DEFAULTS.pace),
       orientation: normalizeOrientation(parsed.orientation ?? DEFAULTS.orientation),
       sound: parsed.sound !== false,
+      playerName: normalizePlayerName(parsed.playerName ?? ""),
     };
   }
 
@@ -168,6 +233,7 @@
       pace: DEFAULTS.pace,
       orientation: DEFAULTS.orientation,
       sound: DEFAULTS.sound,
+      playerName: DEFAULTS.playerName,
     };
   }
 
@@ -799,7 +865,8 @@
 
   /** Tap frog: flip long ↔ short. Locks in MTM as new basis if already invested. */
   function toggleSide() {
-    if (!els.scrim.hidden) return;
+    if (roundState !== "playing") return;
+    if (!els.scrim.hidden || (els.roundScrim && !els.roundScrim.hidden)) return;
     if (holding) {
       const value = holdingValue();
       const q = quoteForSymbol(holding.symbol);
@@ -1078,7 +1145,8 @@
   }
 
   function move(dir) {
-    if (busy || !els.scrim.hidden) return;
+    if (roundState !== "playing") return;
+    if (busy || !els.scrim.hidden || (els.roundScrim && !els.roundScrim.hidden)) return;
 
     // On a log, left/right walk leverage seats (1× left … 5× right)
     if (riding && (dir === "left" || dir === "right")) {
@@ -1401,6 +1469,217 @@
     }
   }
 
+  function currentPortfolioValue() {
+    if (holding) {
+      const value = holdingValue();
+      if (value != null) return value;
+    }
+    return cash;
+  }
+
+  function formatClock(ms) {
+    const total = Math.max(0, Math.ceil(ms / 1000));
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return m + ":" + String(s).padStart(2, "0");
+  }
+
+  function updateTimerUi(remainingMs) {
+    const pct = Math.max(0, Math.min(1, remainingMs / ROUND_MS));
+    if (els.timerBar) els.timerBar.style.width = pct * 100 + "%";
+    if (els.timerLabel) els.timerLabel.textContent = formatClock(remainingMs);
+    if (els.timer) {
+      els.timer.setAttribute("aria-valuenow", String(Math.ceil(remainingMs / 1000)));
+      els.timer.classList.toggle("is-low", remainingMs <= 20000 && remainingMs > 8000);
+      els.timer.classList.toggle("is-critical", remainingMs <= 8000);
+    }
+  }
+
+  function stopRoundClock() {
+    if (roundRaf) {
+      cancelAnimationFrame(roundRaf);
+      roundRaf = 0;
+    }
+  }
+
+  function tickRoundClock() {
+    if (roundState !== "playing") return;
+    const remaining = roundEndsAt - performance.now();
+    updateTimerUi(remaining);
+    if (remaining <= 0) {
+      endRound();
+      return;
+    }
+    roundRaf = requestAnimationFrame(tickRoundClock);
+  }
+
+  async function supabaseFetch(path, options = {}) {
+    const cfg = supabaseConfig();
+    if (!cfg) throw new Error("Supabase is not configured");
+    const res = await fetch(cfg.url + path, {
+      ...options,
+      headers: {
+        apikey: cfg.key,
+        Authorization: "Bearer " + cfg.key,
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(body || res.statusText || "Supabase request failed");
+    }
+    if (res.status === 204) return null;
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  }
+
+  async function saveScore(playerName, score) {
+    const row = {
+      player_name: playerName,
+      score: Math.round(score),
+    };
+    await supabaseFetch("/rest/v1/scores", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify(row),
+    });
+  }
+
+  async function fetchLeaderboard() {
+    const rows = await supabaseFetch(
+      "/rest/v1/scores?select=player_name,score,created_at&order=score.desc,created_at.desc&limit=8"
+    );
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  function renderLeaderboard(rows) {
+    if (!els.leaderboard || !els.leaderboardList) return;
+    els.leaderboardList.innerHTML = "";
+    if (!rows.length) {
+      els.leaderboard.hidden = true;
+      return;
+    }
+    rows.forEach((row, i) => {
+      const li = document.createElement("li");
+      const rank = document.createElement("span");
+      rank.className = "lb-rank";
+      rank.textContent = String(i + 1) + ".";
+      const name = document.createElement("span");
+      name.className = "lb-name";
+      name.textContent = row.player_name || "Player";
+      const score = document.createElement("span");
+      score.className = "lb-score";
+      score.textContent = scoreMoney(Number(row.score) || 0);
+      li.append(rank, name, score);
+      els.leaderboardList.appendChild(li);
+    });
+    els.leaderboard.hidden = false;
+  }
+
+  function resetRoundPosition() {
+    holding = null;
+    cash = BUY_DOLLARS;
+    leverage = 1;
+    side = "long";
+    frogLane = -1;
+    frogX = 0.5;
+    riding = false;
+    rideOffsetX = 0;
+    rideOffsetY = 0;
+    busy = false;
+    els.frog.classList.remove("is-jumping", "is-riding");
+    updateFrogUi();
+    placeFrog();
+    updateHud();
+  }
+
+  function showRoundSheet(mode) {
+    roundState = mode === "ended" ? "ended" : "idle";
+    stopRoundClock();
+    if (els.roundTitle) {
+      els.roundTitle.textContent = mode === "ended" ? "Time's up" : "Frogger";
+    }
+    if (els.roundCopy) {
+      els.roundCopy.textContent =
+        mode === "ended"
+          ? "Here's your score. Play another minute?"
+          : "One minute on the river. Grow your $100,000.";
+    }
+    if (els.roundScore) els.roundScore.hidden = mode !== "ended";
+    if (els.roundScoreValue) els.roundScoreValue.textContent = scoreMoney(lastFinalScore);
+    if (els.roundPlay) els.roundPlay.textContent = mode === "ended" ? "Play again" : "Play 1:00";
+    if (els.roundStatus) {
+      els.roundStatus.hidden = true;
+      els.roundStatus.textContent = "";
+    }
+    if (mode !== "ended" && els.leaderboard) els.leaderboard.hidden = true;
+    const name = readStoredPlayerName();
+    if (els.playerName) els.playerName.value = name;
+    if (els.roundScrim) els.roundScrim.hidden = false;
+    if (els.playerName) els.playerName.focus();
+  }
+
+  function hideRoundSheet() {
+    if (els.roundScrim) els.roundScrim.hidden = true;
+  }
+
+  function startRound() {
+    const name = persistPlayerName(els.playerName?.value || readStoredPlayerName());
+    if (!name) {
+      if (els.roundStatus) {
+        els.roundStatus.hidden = false;
+        els.roundStatus.textContent = "Enter a player name to start.";
+      }
+      els.playerName?.focus();
+      return;
+    }
+    hideRoundSheet();
+    resetRoundPosition();
+    updateTimerUi(ROUND_MS);
+    roundState = "playing";
+    roundEndsAt = performance.now() + ROUND_MS;
+    stopRoundClock();
+    roundRaf = requestAnimationFrame(tickRoundClock);
+    showToast("Go — 1:00");
+  }
+
+  async function endRound() {
+    if (roundState !== "playing") return;
+    roundState = "ended";
+    stopRoundClock();
+    updateTimerUi(0);
+    if (holding) sellToCash();
+    lastFinalScore = currentPortfolioValue();
+    updateHud();
+    const name = readStoredPlayerName() || "Player";
+    showRoundSheet("ended");
+    if (els.roundStatus) {
+      els.roundStatus.hidden = false;
+      els.roundStatus.textContent = supabaseConfig()
+        ? "Saving score…"
+        : "Supabase not configured — score kept locally only.";
+    }
+    try {
+      if (supabaseConfig()) {
+        await saveScore(name, lastFinalScore);
+        const rows = await fetchLeaderboard();
+        renderLeaderboard(rows);
+        if (els.roundStatus) els.roundStatus.textContent = "Score saved to Supabase.";
+      } else {
+        renderLeaderboard([
+          { player_name: name, score: lastFinalScore },
+        ]);
+      }
+    } catch (err) {
+      console.error(err);
+      if (els.roundStatus) {
+        els.roundStatus.textContent = "Could not save to Supabase. Try again later.";
+      }
+      renderLeaderboard([{ player_name: name, score: lastFinalScore }]);
+    }
+  }
+
   function openSettings() {
     const cfg = loadSettings();
     els.symA.value = cfg.symbols[0];
@@ -1409,6 +1688,7 @@
     if (els.symD) els.symD.value = cfg.symbols[3];
     syncOrientationUi(cfg.orientation);
     if (els.soundOn) els.soundOn.checked = cfg.sound !== false;
+    if (els.settingsPlayerName) els.settingsPlayerName.value = readStoredPlayerName();
     syncPaceUi(cfg.pace);
     els.scrim.hidden = false;
     els.symA.focus();
@@ -1416,6 +1696,7 @@
 
   function closeSettings(save) {
     if (save) {
+      const prev = loadSettings();
       const next = {
         symbols: [
           normalizeSymbol(els.symA.value, DEFAULTS.symbols[0]),
@@ -1423,19 +1704,34 @@
           normalizeSymbol(els.symC.value, DEFAULTS.symbols[2]),
           normalizeSymbol(els.symD?.value, DEFAULTS.symbols[3]),
         ],
-        synthetic: loadSettings().synthetic,
-        pace: clampPace(els.paceSlider?.value ?? loadSettings().pace),
+        synthetic: prev.synthetic,
+        pace: clampPace(els.paceSlider?.value ?? prev.pace),
         orientation: normalizeOrientation(orientationFromToggle()),
         sound: els.soundOn ? !!els.soundOn.checked : true,
+        playerName: normalizePlayerName(
+          els.settingsPlayerName?.value || readStoredPlayerName()
+        ),
       };
+      const symbolsChanged = next.symbols.join(",") !== prev.symbols.join(",");
       persist(next);
-      holding = null;
-      cash = BUY_DOLLARS;
-      updateHud();
+      persistPlayerName(next.playerName);
+      if (els.playerName) els.playerName.value = next.playerName;
       quotes = next.symbols.map((s) => seedQuote(s));
       applyLogTransition(synthParams(next.pace).interval);
       if (next.synthetic) setSynthetic(true);
       else refresh(true);
+      if (roundState !== "playing" || symbolsChanged) {
+        if (roundState === "playing" && symbolsChanged) {
+          // Symbol swap mid-round: restart bankroll but keep the clock.
+          holding = null;
+          cash = BUY_DOLLARS;
+          updateHud();
+        } else if (roundState !== "playing") {
+          holding = null;
+          cash = BUY_DOLLARS;
+          updateHud();
+        }
+      }
       layoutLogs();
     }
     els.scrim.hidden = true;
@@ -1455,9 +1751,12 @@
   updateFrogUi();
   placeFrog();
   updateHud();
+  updateTimerUi(ROUND_MS);
   updateMarketBadge();
   applyOrientationClass();
   layoutLogs();
+  if (els.playerName) els.playerName.value = readStoredPlayerName();
+  showRoundSheet("idle");
 
   els.frog.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -1492,6 +1791,11 @@
     });
   });
 
+  els.roundPanel?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    startRound();
+  });
+
   els.gear.addEventListener("click", openSettings);
   els.version?.addEventListener("click", () => {
     const url = new URL(location.href);
@@ -1509,6 +1813,12 @@
   window.addEventListener("keydown", (e) => {
     if (!els.scrim.hidden) {
       if (e.key === "Escape") closeSettings(true);
+      return;
+    }
+    if (els.roundScrim && !els.roundScrim.hidden) {
+      if (e.key === "Escape" && roundState === "ended") {
+        /* keep sheet open until they play again */
+      }
       return;
     }
     const map = {
