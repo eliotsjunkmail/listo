@@ -60,40 +60,6 @@ body {
   font-family: inherit;
 }
 
-body.synth-on .synth-toggle {
-  bottom: max(4.7rem, calc(env(safe-area-inset-bottom) + 4.4rem));
-}
-
-.synth-pace {
-  position: fixed;
-  left: max(0.75rem, env(safe-area-inset-left));
-  bottom: max(0.9rem, env(safe-area-inset-bottom));
-  top: auto;
-  z-index: 20;
-  width: min(10.5rem, calc(100vw - 7.5rem));
-  padding: 0.45rem 0.65rem 0.55rem;
-  border-radius: 14px;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
-  pointer-events: auto;
-}
-
-.synth-pace[hidden] {
-  display: none;
-}
-
-.synth-pace label {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 0.25rem;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.85);
-}
-
 .pace-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -102,7 +68,7 @@ body.synth-on .synth-toggle {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.22);
   outline: none;
-  margin: 0;
+  margin: 0.35rem 0 0;
 }
 
 .pace-slider::-webkit-slider-thumb {
@@ -355,16 +321,26 @@ body.is-vertical .lane:last-child {
   z-index: 6;
   pointer-events: none;
   display: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 body.synth-on .level:not([hidden]) {
   display: block;
+  pointer-events: auto;
 }
 
 body.is-vertical .level {
   left: 0;
   right: 0;
   height: 0;
+  border: 0;
   border-top: 2px dashed rgba(255, 255, 255, 0.7);
   transform: none;
 }
@@ -373,6 +349,7 @@ body.is-horizontal .level {
   top: 0;
   bottom: 0;
   width: 0;
+  border: 0;
   border-left: 2px dashed rgba(255, 255, 255, 0.7);
   transform: none;
 }
@@ -385,32 +362,51 @@ body.is-horizontal .level {
   border-color: rgba(80, 220, 170, 0.85) !important;
 }
 
-.level span {
+.level-label,
+.level-tip {
   position: absolute;
   font-size: 0.62rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 0.1rem 0.28rem;
+  letter-spacing: 0.04em;
+  padding: 0.12rem 0.35rem;
   border-radius: 4px;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+  pointer-events: none;
 }
 
-body.is-vertical .level span {
-  left: 0;
-  top: -0.7rem;
+body.is-vertical .level-label,
+body.is-vertical .level-tip {
+  left: 0.2rem;
+  top: -0.85rem;
 }
 
-body.is-horizontal .level span {
-  top: 0;
-  left: 0.25rem;
+body.is-horizontal .level-label,
+body.is-horizontal .level-tip {
+  top: 0.25rem;
+  left: 0.3rem;
 }
 
-.level-res span {
+.level-res .level-label,
+.level-res .level-tip {
   color: #ffb4b4;
 }
 
-.level-sup span {
+.level-sup .level-label,
+.level-sup .level-tip {
   color: #9dffd4;
+}
+
+.level-tip {
+  z-index: 2;
+  font-family: var(--score-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.level-tip[hidden] {
+  display: none;
 }
 
 .level.is-broken {
@@ -596,7 +592,7 @@ body.is-horizontal .log {
   height: 100%;
   border-radius: 999px;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr;
   align-items: center;
   gap: 0.45rem;
   padding: 0 1.1rem;
@@ -611,7 +607,7 @@ body.is-horizontal .log {
 
 body.is-vertical .log-wood {
   grid-template-columns: 1fr;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto auto;
   justify-items: center;
   align-content: center;
   gap: 0.2rem;
@@ -621,8 +617,7 @@ body.is-vertical .log-wood {
 }
 
 body.is-vertical .log-sym,
-body.is-vertical .log-last,
-body.is-vertical .log-chg {
+body.is-vertical .log-last {
   text-align: center;
 }
 
@@ -666,12 +661,6 @@ body.is-vertical .log.is-down .log-wood {
   font-size: 1.05rem;
   font-weight: 700;
   text-align: center;
-}
-
-.log-chg {
-  font-size: 0.78rem;
-  font-weight: 700;
-  white-space: nowrap;
 }
 
 .frog {
@@ -871,6 +860,18 @@ body.is-vertical .log.is-down .log-wood {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(246, 246, 242, 0.55);
+}
+
+.pace-field-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.pace-field-head #pace-value {
+  font-family: var(--score-font);
+  color: #b8f5c8;
+  letter-spacing: 0.04em;
 }
 
 .panel input,

@@ -11,30 +11,13 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=66" />
+    <link rel="stylesheet" href="styles.css?v=67" />
   </head>
   <body class="is-vertical">
     <button type="button" class="synth-toggle" id="synth-toggle" aria-pressed="false">
       <span class="synth-dot" aria-hidden="true"></span>
       <span id="synth-label">Synthetic off</span>
     </button>
-
-    <div class="synth-pace" id="synth-pace" hidden>
-      <label for="pace-slider">
-        <span>Pace</span>
-        <span id="pace-value">4</span>
-      </label>
-      <input
-        id="pace-slider"
-        class="pace-slider"
-        type="range"
-        min="1"
-        max="10"
-        step="1"
-        value="4"
-        aria-label="Synthetic movement pace"
-      />
-    </div>
 
     <div class="market" id="market" aria-live="polite">
       <span class="market-dot" aria-hidden="true"></span>
@@ -67,11 +50,16 @@
             <div class="log-wood">
               <span class="log-sym" id="sym-0">SNAP</span>
               <span class="log-last" id="last-0">—</span>
-              <span class="log-chg" id="chg-0"></span>
             </div>
           </div>
-          <div class="level level-res" id="res-0" hidden><span>R</span></div>
-          <div class="level level-sup" id="sup-0" hidden><span>S</span></div>
+          <button type="button" class="level level-res" id="res-0" hidden>
+            <span class="level-label">Resistance</span>
+            <span class="level-tip" hidden></span>
+          </button>
+          <button type="button" class="level level-sup" id="sup-0" hidden>
+            <span class="level-label">Support</span>
+            <span class="level-tip" hidden></span>
+          </button>
         </div>
         <div class="lane" data-lane="1">
           <div class="log" id="log-1" data-index="1">
@@ -79,11 +67,16 @@
             <div class="log-wood">
               <span class="log-sym" id="sym-1">META</span>
               <span class="log-last" id="last-1">—</span>
-              <span class="log-chg" id="chg-1"></span>
             </div>
           </div>
-          <div class="level level-res" id="res-1" hidden><span>R</span></div>
-          <div class="level level-sup" id="sup-1" hidden><span>S</span></div>
+          <button type="button" class="level level-res" id="res-1" hidden>
+            <span class="level-label">Resistance</span>
+            <span class="level-tip" hidden></span>
+          </button>
+          <button type="button" class="level level-sup" id="sup-1" hidden>
+            <span class="level-label">Support</span>
+            <span class="level-tip" hidden></span>
+          </button>
         </div>
         <div class="lane" data-lane="2">
           <div class="log" id="log-2" data-index="2">
@@ -91,11 +84,16 @@
             <div class="log-wood">
               <span class="log-sym" id="sym-2">GOOG</span>
               <span class="log-last" id="last-2">—</span>
-              <span class="log-chg" id="chg-2"></span>
             </div>
           </div>
-          <div class="level level-res" id="res-2" hidden><span>R</span></div>
-          <div class="level level-sup" id="sup-2" hidden><span>S</span></div>
+          <button type="button" class="level level-res" id="res-2" hidden>
+            <span class="level-label">Resistance</span>
+            <span class="level-tip" hidden></span>
+          </button>
+          <button type="button" class="level level-sup" id="sup-2" hidden>
+            <span class="level-label">Support</span>
+            <span class="level-tip" hidden></span>
+          </button>
         </div>
       </div>
 
@@ -152,10 +150,26 @@
             <option value="horizontal">Horizontal — logs move left / right</option>
           </select>
         </label>
+        <label class="pace-field">
+          <span class="pace-field-head">
+            <span>Synthetic pace</span>
+            <span id="pace-value">4</span>
+          </span>
+          <input
+            id="pace-slider"
+            class="pace-slider"
+            type="range"
+            min="1"
+            max="10"
+            step="1"
+            value="4"
+            aria-label="Synthetic movement pace"
+          />
+        </label>
         <button type="submit" class="done">Done</button>
       </form>
     </div>
 
-    <script src="app.js?v=66"></script>
+    <script src="app.js?v=67"></script>
   </body>
 </html>

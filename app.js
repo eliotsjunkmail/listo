@@ -29,7 +29,6 @@
     marketLabel: document.getElementById("market-label"),
     synthToggle: document.getElementById("synth-toggle"),
     synthLabel: document.getElementById("synth-label"),
-    synthPace: document.getElementById("synth-pace"),
     paceSlider: document.getElementById("pace-slider"),
     paceValue: document.getElementById("pace-value"),
     orientation: document.getElementById("orientation"),
@@ -43,7 +42,6 @@
       el: document.getElementById("log-" + i),
       sym: document.getElementById("sym-" + i),
       last: document.getElementById("last-" + i),
-      chg: document.getElementById("chg-" + i),
       res: document.getElementById("res-" + i),
       sup: document.getElementById("sup-" + i),
     })),
@@ -71,6 +69,7 @@
   /** While > now, frog eases to the new leverage seat (skip mid-slide rAF snaps) */
   let leverageSlideUntil = 0;
   let leverageSlideArmed = false;
+  let levelTipTimer = 0;
 
   /** @type {{symbol:string, shares:number, invested:number, entry:number}|null} */
   let holding = null;
@@ -453,7 +452,6 @@
 
       log.sym.textContent = q.symbol;
       log.last.textContent = slimPrice(q.last);
-      log.chg.textContent = slimChange(q.change);
       updateLogTrail(i, q, vertical);
 
       // Draw fixed S/R from price levels (they stay put until a breakout)
@@ -512,8 +510,30 @@
       supEl.style.right = "auto";
     }
 
-    resEl.querySelector("span").textContent = "R " + slimPrice(q.resistance);
-    supEl.querySelector("span").textContent = "S " + slimPrice(q.support);
+    const resLabel = resEl.querySelector(".level-label");
+    const supLabel = supEl.querySelector(".level-label");
+    if (resLabel) resLabel.textContent = "Resistance";
+    if (supLabel) supLabel.textContent = "Support";
+    resEl.dataset.price = slimPrice(q.resistance);
+    supEl.dataset.price = slimPrice(q.support);
+    resEl.setAttribute("aria-label", "Resistance " + slimPrice(q.resistance));
+    supEl.setAttribute("aria-label", "Support " + slimPrice(q.support));
+  }
+
+  function showLevelTip(el) {
+    if (!el || el.hidden) return;
+    const tip = el.querySelector(".level-tip");
+    const label = el.querySelector(".level-label");
+    const price = el.dataset.price;
+    if (!tip || !price) return;
+    tip.textContent = price;
+    tip.hidden = false;
+    if (label) label.hidden = true;
+    window.clearTimeout(levelTipTimer);
+    levelTipTimer = window.setTimeout(() => {
+      tip.hidden = true;
+      if (label) label.hidden = false;
+    }, 1800);
   }
 
   /** Horizontal rows: lane 0=nearest maps to log index 2. Vertical columns: lane == log index. */
@@ -1239,7 +1259,6 @@
     els.synthToggle.setAttribute("aria-pressed", on ? "true" : "false");
     els.synthLabel.textContent = on ? "Synthetic on" : "Synthetic off";
     document.body.classList.toggle("synth-on", on);
-    if (els.synthPace) els.synthPace.hidden = !on;
     window.clearInterval(synthTimer);
     if (on) {
       syncPaceUi(cfg.pace);
@@ -1304,6 +1323,7 @@
     els.symB.value = cfg.symbols[1];
     els.symC.value = cfg.symbols[2];
     if (els.orientation) els.orientation.value = cfg.orientation;
+    syncPaceUi(cfg.pace);
     els.scrim.hidden = false;
     els.symA.focus();
   }
@@ -1317,7 +1337,7 @@
           normalizeSymbol(els.symC.value, DEFAULTS.symbols[2]),
         ],
         synthetic: loadSettings().synthetic,
-        pace: loadSettings().pace,
+        pace: clampPace(els.paceSlider?.value ?? loadSettings().pace),
         orientation: normalizeOrientation(els.orientation?.value),
       };
       persist(next);
