@@ -66,6 +66,9 @@
   let toastTimer = 0;
   let synthTimer = 0;
   let rideRaf = 0;
+  /** While > now, frog eases to the new leverage seat (skip mid-slide rAF snaps) */
+  let leverageSlideUntil = 0;
+  let leverageSlideArmed = false;
 
   /** @type {{symbol:string, shares:number, invested:number, entry:number}|null} */
   let holding = null;
@@ -544,6 +547,17 @@
     return riverTop + row * laneH + laneH / 2 - frog / 2;
   }
 
+  function leverageSpotT() {
+    if (leverage <= 1) return 0.22;
+    if (leverage === 2) return 0.5;
+    return 0.78;
+  }
+
+  /** Horizontal offset from log center for the current leverage seat */
+  function leverageRideOffsetX(logWidth) {
+    return logWidth * (leverageSpotT() - 0.5);
+  }
+
   function placeFrog() {
     const frog = els.frog;
     const worldW = els.world.clientWidth;
@@ -557,10 +571,14 @@
       const logBox = els.logs[logIdx].el.getBoundingClientRect();
       const logCx = logBox.left + logBox.width / 2 - worldBox.left;
       const logCy = logBox.top + logBox.height / 2 - worldBox.top;
+      rideOffsetX = leverageRideOffsetX(logBox.width);
       const fx = logCx + rideOffsetX;
       const fy = logCy + rideOffsetY - size / 2;
-      frog.classList.add("is-riding");
-      frog.style.transition = "none";
+      const sliding = performance.now() < leverageSlideUntil;
+      frog.classList.toggle("is-riding", !sliding);
+      frog.style.transition = sliding
+        ? "left 0.2s ease, top 0.2s ease, width 0.18s ease, height 0.18s ease"
+        : "none";
       frog.style.left = fx + "px";
       frog.style.top = fy + "px";
       frogX = fx / worldW;
@@ -686,6 +704,10 @@
       holding.shares = (holding.invested * leverage) / holding.entry;
     }
     updateLeverageUi();
+    if (riding) {
+      leverageSlideUntil = performance.now() + 220;
+      placeFrog();
+    }
     updateHud();
     showToast(leverage + "× leverage");
   }
@@ -816,8 +838,7 @@
   }
 
   /**
-   * Jump toward a log at the frog's approach aim.
-   * Lands on the nearest point on that log (not forced to center).
+   * Jump toward a log; land on the leverage seat (left 1× / mid 2× / right 3×).
    */
   function tryBoard(logIdx, nextLane, landX) {
     const worldBox = els.world.getBoundingClientRect();
@@ -837,8 +858,9 @@
     const logBot = logBox.bottom - worldBox.top;
     const logCx = (logLeft + logRight) / 2;
     const logCy = (logTop + logBot) / 2;
+    const logW = logRight - logLeft;
 
-    const insetX = Math.min(size * 0.35, Math.max(8, (logRight - logLeft) * 0.2));
+    const insetX = Math.min(size * 0.35, Math.max(8, logW * 0.2));
     const minX = logLeft + insetX;
     const maxX = logRight - insetX;
     const minY = logTop + 4;
@@ -851,7 +873,7 @@
     }
 
     const fromBank = prevLane < 0;
-    const reach = Math.max(logRight - logLeft, size) * 0.65;
+    const reach = Math.max(logW, size) * 0.65;
     if (!fromBank && (aimX < logLeft - reach || aimX > logRight + reach)) {
       frogLane = prevLane;
       riding = prevRiding;
@@ -862,15 +884,19 @@
       return;
     }
 
-    const landCenterX = Math.min(maxX, Math.max(minX, aimX));
+    const landCenterX = Math.min(
+      maxX,
+      Math.max(minX, logLeft + logW * leverageSpotT())
+    );
     const preferY = isVertical() ? logBot - size - 4 : laneY(nextLane);
     const landYTop = Math.min(maxY, Math.max(minY, preferY));
     const landCenterY = landYTop + size / 2;
 
     frogLane = nextLane;
-    rideOffsetX = landCenterX - logCx;
+    rideOffsetX = leverageRideOffsetX(logW);
     rideOffsetY = landCenterY - logCy;
     riding = true;
+    leverageSlideUntil = 0;
 
     positionFrogAt(landCenterX, landYTop);
     landOnLog(logIdx);

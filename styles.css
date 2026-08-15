@@ -455,6 +455,57 @@ body.is-vertical .river::before {
   filter: blur(0.4px);
 }
 
+.log-spots {
+  position: absolute;
+  z-index: 2;
+  left: 14%;
+  right: 14%;
+  bottom: 14%;
+  height: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+
+body.is-horizontal .log-spots {
+  top: 50%;
+  bottom: auto;
+  left: 16%;
+  right: 16%;
+  transform: translateY(-50%);
+}
+
+body.is-vertical .log-spots {
+  left: 18%;
+  right: 18%;
+  bottom: 12%;
+}
+
+.log-spot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(40, 22, 8, 0.28);
+  border: 1.5px solid rgba(255, 230, 180, 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition:
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+body:has(.frog[data-lev="1"]) .log-spot[data-spot="1"],
+body:has(.frog[data-lev="2"]) .log-spot[data-spot="2"],
+body:has(.frog[data-lev="3"]) .log-spot[data-spot="3"] {
+  background: rgba(70, 210, 120, 0.95);
+  border-color: rgba(230, 255, 235, 0.85);
+  box-shadow:
+    0 0 0 2px rgba(30, 100, 55, 0.35),
+    0 0 10px rgba(80, 230, 140, 0.55);
+  transform: scale(1.2);
+}
+
 .log.trail-left .log-trail,
 .log.trail-right .log-trail,
 .log.trail-top .log-trail,
