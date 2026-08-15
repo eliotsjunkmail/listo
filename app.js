@@ -37,7 +37,8 @@
     synthLabel: document.getElementById("synth-label"),
     paceSlider: document.getElementById("pace-slider"),
     paceValue: document.getElementById("pace-value"),
-    orientation: document.getElementById("orientation"),
+    orientationToggle: document.getElementById("orientation-toggle"),
+    orientationLabel: document.getElementById("orientation-label"),
     soundOn: document.getElementById("sound-on"),
     hudScore: document.getElementById("hud-score"),
     hudPnl: document.getElementById("hud-pnl"),
@@ -1306,6 +1307,28 @@
     synthTimer = window.setInterval(tickSynthetic, interval);
   }
 
+  function orientationFromToggle() {
+    return els.orientationToggle && !els.orientationToggle.checked
+      ? "horizontal"
+      : "vertical";
+  }
+
+  function syncOrientationUi(orientation) {
+    const vertical = normalizeOrientation(orientation) !== "horizontal";
+    if (els.orientationToggle) {
+      els.orientationToggle.checked = vertical;
+      els.orientationToggle.setAttribute(
+        "aria-label",
+        vertical ? "Vertical log motion" : "Horizontal log motion"
+      );
+    }
+    if (els.orientationLabel) {
+      els.orientationLabel.textContent = vertical
+        ? "Vertical — up / down"
+        : "Horizontal — left / right";
+    }
+  }
+
   function syncPaceUi(pace) {
     const p = clampPace(pace);
     if (els.paceSlider) els.paceSlider.value = String(p);
@@ -1383,7 +1406,7 @@
     els.symB.value = cfg.symbols[1];
     els.symC.value = cfg.symbols[2];
     if (els.symD) els.symD.value = cfg.symbols[3];
-    if (els.orientation) els.orientation.value = cfg.orientation;
+    syncOrientationUi(cfg.orientation);
     if (els.soundOn) els.soundOn.checked = cfg.sound !== false;
     syncPaceUi(cfg.pace);
     els.scrim.hidden = false;
@@ -1401,7 +1424,7 @@
         ],
         synthetic: loadSettings().synthetic,
         pace: clampPace(els.paceSlider?.value ?? loadSettings().pace),
-        orientation: normalizeOrientation(els.orientation?.value),
+        orientation: normalizeOrientation(orientationFromToggle()),
         sound: els.soundOn ? !!els.soundOn.checked : true,
       };
       persist(next);
@@ -1423,7 +1446,7 @@
   els.symB.value = saved.symbols[1];
   els.symC.value = saved.symbols[2];
   if (els.symD) els.symD.value = saved.symbols[3];
-  if (els.orientation) els.orientation.value = saved.orientation;
+  syncOrientationUi(saved.orientation);
   if (els.soundOn) els.soundOn.checked = saved.sound !== false;
   quotes = saved.symbols.map((s) => seedQuote(s));
 
@@ -1443,6 +1466,10 @@
   els.synthToggle.addEventListener("click", () => {
     const on = els.synthToggle.getAttribute("aria-pressed") !== "true";
     setSynthetic(on);
+  });
+
+  els.orientationToggle?.addEventListener("change", () => {
+    syncOrientationUi(orientationFromToggle());
   });
 
   els.paceSlider?.addEventListener("input", () => {
