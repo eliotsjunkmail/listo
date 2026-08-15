@@ -2064,6 +2064,7 @@
 
   window.addEventListener("resize", () => {
     layoutLogs();
+    syncStatusPillWidths();
   });
 
   syncDemoModeUi(saved.synthetic);
