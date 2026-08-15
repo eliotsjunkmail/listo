@@ -1067,22 +1067,6 @@ body.is-vertical .log.is-down .log-wood {
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-.demo-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.3rem 0.7rem;
-  border-radius: 999px;
-  border: 1px solid rgba(120, 220, 150, 0.45);
-  background: rgba(8, 22, 14, 0.72);
-  color: #b8f5c8;
-  font-family: var(--score-font);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  pointer-events: none;
-}
-
 .demo-cta {
   appearance: none;
   border: 0;
