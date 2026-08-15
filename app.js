@@ -74,7 +74,7 @@
   let holding = null;
   /** Liquid cash after selling back to shore; spent when boarding a log */
   let cash = BUY_DOLLARS;
-  /** Tap the frog to cycle 1× → 2× → 3× → 1× */
+  /** Tap the frog to cycle 1× → 2× → 3× → 4× → 5× → 1× */
   let leverage = 1;
 
   const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -549,9 +549,9 @@
   }
 
   function leverageSpotT() {
-    if (leverage <= 1) return 0.22;
-    if (leverage === 2) return 0.5;
-    return 0.78;
+    const lev = Math.min(5, Math.max(1, leverage));
+    // Five seats: left (1×) → right (5×)
+    return 0.12 + ((lev - 1) / 4) * 0.76;
   }
 
   /** Horizontal offset from log center for the current leverage seat */
@@ -713,7 +713,7 @@
 
   function cycleLeverage() {
     if (!els.scrim.hidden) return;
-    leverage = leverage >= 3 ? 1 : leverage + 1;
+    leverage = leverage >= 5 ? 1 : leverage + 1;
     if (holding && Number.isFinite(holding.entry) && holding.entry > 0) {
       holding.shares = (holding.invested * leverage) / holding.entry;
     }
@@ -853,7 +853,7 @@
   }
 
   /**
-   * Jump toward a log; land on the leverage seat (left 1× / mid 2× / right 3×).
+   * Jump toward a log; land on the leverage seat (left 1× … right 5×).
    */
   function tryBoard(logIdx, nextLane, landX) {
     const worldBox = els.world.getBoundingClientRect();

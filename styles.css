@@ -458,8 +458,8 @@ body.is-vertical .river::before {
 .log-spots {
   position: absolute;
   z-index: 2;
-  left: 14%;
-  right: 14%;
+  left: 10%;
+  right: 10%;
   bottom: 14%;
   height: 12px;
   display: flex;
@@ -471,20 +471,20 @@ body.is-vertical .river::before {
 body.is-horizontal .log-spots {
   top: 50%;
   bottom: auto;
-  left: 16%;
-  right: 16%;
+  left: 12%;
+  right: 12%;
   transform: translateY(-50%);
 }
 
 body.is-vertical .log-spots {
-  left: 18%;
-  right: 18%;
+  left: 14%;
+  right: 14%;
   bottom: 12%;
 }
 
 .log-spot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: rgba(40, 22, 8, 0.28);
   border: 1.5px solid rgba(255, 230, 180, 0.45);
@@ -497,7 +497,9 @@ body.is-vertical .log-spots {
 
 body:has(.frog[data-lev="1"]) .log-spot[data-spot="1"],
 body:has(.frog[data-lev="2"]) .log-spot[data-spot="2"],
-body:has(.frog[data-lev="3"]) .log-spot[data-spot="3"] {
+body:has(.frog[data-lev="3"]) .log-spot[data-spot="3"],
+body:has(.frog[data-lev="4"]) .log-spot[data-spot="4"],
+body:has(.frog[data-lev="5"]) .log-spot[data-spot="5"] {
   background: rgba(70, 210, 120, 0.95);
   border-color: rgba(230, 255, 235, 0.85);
   box-shadow:
@@ -733,11 +735,19 @@ body.is-vertical .log.is-down .log-wood {
 }
 
 .frog[data-lev="2"] {
-  --frog-size: 50px;
+  --frog-size: 48px;
 }
 
 .frog[data-lev="3"] {
+  --frog-size: 52px;
+}
+
+.frog[data-lev="4"] {
   --frog-size: 56px;
+}
+
+.frog[data-lev="5"] {
+  --frog-size: 60px;
 }
 
 .frog-lev {
