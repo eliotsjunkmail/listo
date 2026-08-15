@@ -71,6 +71,13 @@
     playerNameField: document.getElementById("player-name-field"),
     demoOverlay: document.getElementById("demo-overlay"),
     demoCta: document.getElementById("demo-cta"),
+    howtoLink: document.getElementById("howto-link"),
+    howtoScrim: document.getElementById("howto-scrim"),
+    howtoPanel: document.getElementById("howto-panel"),
+    howtoClose: document.getElementById("howto-close"),
+    howtoBack: document.getElementById("howto-back"),
+    howtoNext: document.getElementById("howto-next"),
+    howtoDots: document.getElementById("howto-dots"),
     logs: [0, 1, 2, 3].map((i) => ({
       el: document.getElementById("log-" + i),
       sym: document.getElementById("sym-" + i),
@@ -79,6 +86,9 @@
       sup: document.getElementById("sup-" + i),
     })),
   };
+
+  let howtoStep = 0;
+  const HOWTO_STEPS = 3;
 
   /** @type {{symbol:string, open:number, last:number, bid:number, ask:number, change:number, support?:number, resistance?:number, velocity?:number}[]} */
   let quotes = DEFAULTS.symbols.map((symbol) => seedQuote(symbol));
@@ -1812,8 +1822,40 @@
     syncDemoOverlay();
   }
 
+  function isHowtoOpen() {
+    return !!(els.howtoScrim && !els.howtoScrim.hidden);
+  }
+
+  function syncHowtoStep() {
+    const steps = els.howtoPanel?.querySelectorAll(".howto-step");
+    steps?.forEach((step, i) => {
+      const on = i === howtoStep;
+      step.hidden = !on;
+      step.classList.toggle("is-active", on);
+    });
+    const dots = els.howtoDots?.querySelectorAll("span");
+    dots?.forEach((dot, i) => {
+      dot.classList.toggle("is-on", i === howtoStep);
+    });
+    if (els.howtoBack) els.howtoBack.hidden = howtoStep === 0;
+    if (els.howtoNext) {
+      els.howtoNext.textContent = howtoStep >= HOWTO_STEPS - 1 ? "Got it" : "Next";
+    }
+  }
+
+  function openHowto(step = 0) {
+    howtoStep = Math.min(HOWTO_STEPS - 1, Math.max(0, step));
+    syncHowtoStep();
+    if (els.howtoScrim) els.howtoScrim.hidden = false;
+  }
+
+  function closeHowto() {
+    if (els.howtoScrim) els.howtoScrim.hidden = true;
+  }
+
   function openRoundSheet() {
     if (roundState === "playing") return;
+    if (isHowtoOpen()) return;
     showRoundSheet(roundState === "ended" ? "ended" : "demo");
   }
 
@@ -2058,13 +2100,45 @@
     openRoundSheet();
   });
 
+  els.howtoLink?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openHowto(0);
+  });
+
+  els.howtoClose?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeHowto();
+  });
+
+  els.howtoBack?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (howtoStep <= 0) return;
+    howtoStep -= 1;
+    syncHowtoStep();
+  });
+
+  els.howtoNext?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (howtoStep >= HOWTO_STEPS - 1) {
+      closeHowto();
+      return;
+    }
+    howtoStep += 1;
+    syncHowtoStep();
+  });
+
+  els.howtoScrim?.addEventListener("click", (e) => {
+    if (e.target === els.howtoScrim) closeHowto();
+  });
+
   els.stopRound?.addEventListener("click", (e) => {
     e.stopPropagation();
     if (roundState !== "playing") return;
     endRound({ early: true });
   });
 
-  els.demoOverlay?.addEventListener("click", () => {
+  els.demoOverlay?.addEventListener("click", (e) => {
+    if (e.target instanceof Element && e.target.closest("#howto-link")) return;
     openRoundSheet();
   });
 
@@ -2091,11 +2165,14 @@
     (e) => {
       if (roundState !== "demo") return;
       if (isRoundSheetOpen()) return;
+      if (isHowtoOpen()) return;
       if (els.scrim && !els.scrim.hidden) return;
       const t = e.target;
       if (
         t instanceof Element &&
-        t.closest("#app-version, #gear, #synth-toggle, #scrim, #panel")
+        t.closest(
+          "#app-version, #gear, #synth-toggle, #scrim, #panel, #howto-link, #howto-scrim"
+        )
       ) {
         return;
       }
@@ -2119,6 +2196,10 @@
   });
 
   window.addEventListener("keydown", (e) => {
+    if (isHowtoOpen()) {
+      if (e.key === "Escape") closeHowto();
+      return;
+    }
     if (!els.scrim.hidden) {
       if (e.key === "Escape") closeSettings(true);
       return;

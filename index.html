@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=102" />
+    <link rel="stylesheet" href="styles.css?v=103" />
   </head>
   <body class="is-vertical">
     <div class="app-frame" id="app-frame">
@@ -25,8 +25,8 @@
       <span class="market-label" id="market-label">Market <span class="pill-value">closed</span></span>
     </div>
 
-    <button type="button" class="app-version" id="app-version" aria-label="Version 102. Tap to hard refresh">
-      v102
+    <button type="button" class="app-version" id="app-version" aria-label="Version 103. Tap to hard refresh">
+      v103
     </button>
 
     <header class="hud" aria-live="polite">
@@ -159,6 +159,89 @@
     <div class="demo-overlay" id="demo-overlay" hidden>
       <div class="demo-screen">
         <button type="button" class="demo-cta" id="demo-cta">Start game</button>
+        <button type="button" class="howto-link" id="howto-link">How to play</button>
+      </div>
+    </div>
+
+    <div class="scrim howto-scrim" id="howto-scrim" hidden>
+      <div
+        class="panel howto-panel"
+        id="howto-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="howto-title"
+      >
+        <div class="modal-head">
+          <h2 id="howto-title">How to play</h2>
+          <button type="button" class="sheet-close" id="howto-close" aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div class="howto-body">
+          <div class="howto-step is-active" data-step="0">
+            <div class="howto-visual" aria-hidden="true">
+              <div class="ht-scene ht-invest">
+                <div class="ht-water">
+                  <div class="ht-log ht-log-up">
+                    <span>SNAP</span>
+                    <span>10.40</span>
+                  </div>
+                </div>
+                <div class="ht-frog ht-frog-hop"></div>
+                <div class="ht-arrow">↑ hop</div>
+              </div>
+            </div>
+            <h3>Invest</h3>
+            <p>
+              Jump onto a moving log to put your cash into that stock. Ride it while
+              the price moves — hop back to shore to cash out.
+            </p>
+          </div>
+          <div class="howto-step" data-step="1" hidden>
+            <div class="howto-visual" aria-hidden="true">
+              <div class="ht-scene ht-leverage">
+                <div class="ht-log ht-log-wide">
+                  <span class="ht-seat">1×</span>
+                  <span class="ht-seat">2×</span>
+                  <span class="ht-seat is-on">3×</span>
+                  <span class="ht-seat">4×</span>
+                  <span class="ht-seat">5×</span>
+                  <div class="ht-frog ht-frog-slide"></div>
+                </div>
+                <div class="ht-hint">◀ left / right ▶</div>
+              </div>
+            </div>
+            <h3>Leverage</h3>
+            <p>
+              On a log, press left or right to walk seats from 1× to 5×. Higher
+              leverage amplifies gains and losses on every price tick.
+            </p>
+          </div>
+          <div class="howto-step" data-step="2" hidden>
+            <div class="howto-visual" aria-hidden="true">
+              <div class="ht-scene ht-short">
+                <button type="button" class="ht-frog ht-frog-tap is-short" tabindex="-1"></button>
+                <div class="ht-flip">tap frog</div>
+                <div class="ht-pnl-row">
+                  <span class="ht-price is-down">Price ↓</span>
+                  <span class="ht-pnl is-up">Short profit ↑</span>
+                </div>
+              </div>
+            </div>
+            <h3>Short</h3>
+            <p>
+              Tap the frog to flip Long ↔ Short. Short when you expect a drop —
+              you profit if the stock falls, and lose if it rises.
+            </p>
+          </div>
+        </div>
+        <div class="howto-dots" id="howto-dots" aria-hidden="true">
+          <span class="is-on"></span><span></span><span></span>
+        </div>
+        <div class="howto-footer">
+          <button type="button" class="howto-secondary" id="howto-back" hidden>Back</button>
+          <button type="button" class="done" id="howto-next">Next</button>
+        </div>
       </div>
     </div>
 
@@ -281,7 +364,7 @@
     </div>
     </div>
 
-    <script src="config.js?v=102"></script>
-    <script src="app.js?v=102"></script>
+    <script src="config.js?v=103"></script>
+    <script src="app.js?v=103"></script>
   </body>
 </html>
