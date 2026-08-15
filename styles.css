@@ -12,6 +12,7 @@
   --score-font: "Orbitron", "Space Grotesk", sans-serif;
   --frog-size: 44px;
   --lane-h: 88px;
+  --hud-clearance: max(7.25rem, calc(env(safe-area-inset-top) + 6.6rem));
 }
 
 *,
