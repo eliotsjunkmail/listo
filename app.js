@@ -1802,11 +1802,11 @@
           return String(b.created_at || "").localeCompare(String(a.created_at || ""));
         });
       }
-      renderLeaderboard(rows, highlightId);
       if (els.roundStatus) {
         els.roundStatus.hidden = true;
         els.roundStatus.textContent = "";
       }
+      renderLeaderboard(rows, highlightId);
     } catch (err) {
       console.error(err);
       renderLeaderboard(
