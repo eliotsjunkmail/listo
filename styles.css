@@ -1440,60 +1440,65 @@ body.is-vertical .log.is-down .log-wood {
 
 .ht-level {
   position: absolute;
-  left: 8%;
-  right: 8%;
-  height: 0;
-  border-top: 2px dashed rgba(255, 255, 255, 0.7);
   z-index: 1;
+}
+
+.ht-level-vert {
+  top: 12%;
+  bottom: 12%;
+  width: 0;
+  border-left: 2px dashed rgba(255, 255, 255, 0.7);
 }
 
 .ht-level span {
   position: absolute;
-  top: -0.95rem;
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.ht-level-res {
-  top: 18%;
+.ht-level-res.ht-level-vert {
+  right: 14%;
   border-color: rgba(255, 120, 120, 0.85);
 }
 
 .ht-level-res span {
-  right: 0;
+  top: 0.15rem;
+  right: 0.35rem;
   color: #ffb4b4;
 }
 
-.ht-level-sup {
-  bottom: 22%;
+.ht-level-sup.ht-level-vert {
+  left: 14%;
   border-color: rgba(80, 220, 180, 0.85);
 }
 
 .ht-level-sup span {
-  left: 0;
+  bottom: 0.15rem;
+  left: 0.35rem;
   color: #9ef0d0;
 }
 
-.ht-log-bounce {
+.ht-log-bounce-x {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  animation: ht-bounce-sr 2.4s ease-in-out infinite;
+  animation: ht-bounce-sr-x 2.4s ease-in-out infinite;
   z-index: 2;
 }
 
-@keyframes ht-bounce-sr {
+@keyframes ht-bounce-sr-x {
   0%,
   100% {
-    top: 58%;
+    left: 32%;
   }
   45% {
-    top: 28%;
+    left: 68%;
   }
   55% {
-    top: 28%;
+    left: 68%;
   }
 }
 
@@ -2010,7 +2015,7 @@ body.is-demo .app-version {
   .ht-frog-hop,
   .ht-frog-slide,
   .ht-frog-tap,
-  .ht-log-bounce {
+  .ht-log-bounce-x {
     animation: none !important;
   }
 }
