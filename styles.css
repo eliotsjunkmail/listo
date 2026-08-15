@@ -9,6 +9,7 @@
   --bank: #2f6b3a;
   --bank-lit: #4a9a55;
   --font: "Space Grotesk", sans-serif;
+  --score-font: "Orbitron", "Space Grotesk", sans-serif;
   --frog-size: 44px;
   --lane-h: 88px;
 }
@@ -162,26 +163,93 @@ body {
 
 .hud {
   position: fixed;
-  top: max(3.2rem, calc(env(safe-area-inset-top) + 2.6rem));
+  top: max(3.1rem, calc(env(safe-area-inset-top) + 2.5rem));
   left: 50%;
   transform: translateX(-50%);
   z-index: 4;
   text-align: center;
   pointer-events: none;
-  width: min(16rem, calc(100% - 10.5rem));
+  width: min(22rem, calc(100% - 2rem));
 }
 
-.hud-line,
-.hud-buys {
-  margin: 0.25rem 0 0;
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: rgba(238, 246, 239, 0.88);
+.scoreboard {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 0.45rem;
+  padding: 0.45rem;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(8, 22, 14, 0.82), rgba(4, 12, 10, 0.88));
+  border: 2px solid rgba(120, 220, 150, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.45),
+    0 10px 24px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.hud-buys {
+.score-panel {
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.35rem 0.55rem 0.45rem;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  min-width: 0;
+}
+
+.score-label {
+  font-size: 0.62rem;
   font-weight: 700;
-  color: #b8f5c8;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(184, 245, 200, 0.7);
+}
+
+.score-value {
+  font-family: var(--score-font);
+  font-size: clamp(1.05rem, 4.2vw, 1.45rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #f4ffe8;
+  text-shadow: 0 0 12px rgba(62, 207, 106, 0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-pct {
+  font-family: var(--score-font);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(238, 246, 239, 0.75);
+  font-variant-numeric: tabular-nums;
+}
+
+.score-change.is-up .score-value,
+.score-change.is-up .score-pct {
+  color: #5dff8a;
+  text-shadow: 0 0 12px rgba(62, 207, 106, 0.45);
+}
+
+.score-change.is-down .score-value,
+.score-change.is-down .score-pct {
+  color: #ff6b6b;
+  text-shadow: 0 0 12px rgba(255, 92, 92, 0.4);
+}
+
+.score-change.is-flat .score-value,
+.score-change.is-flat .score-pct {
+  color: #f4ffe8;
+  text-shadow: none;
+}
+
+.hud-meta {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(184, 245, 200, 0.92);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
 }
 
 .toast {

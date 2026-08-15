@@ -33,7 +33,10 @@
     paceSlider: document.getElementById("pace-slider"),
     paceValue: document.getElementById("pace-value"),
     orientation: document.getElementById("orientation"),
-    hudCash: document.getElementById("hud-cash"),
+    hudScore: document.getElementById("hud-score"),
+    hudPnl: document.getElementById("hud-pnl"),
+    hudPct: document.getElementById("hud-pct"),
+    hudChange: document.getElementById("hud-change"),
     hudBuys: document.getElementById("hud-buys"),
     toast: document.getElementById("toast"),
     pad: document.getElementById("pad"),
@@ -676,22 +679,46 @@
     );
   }
 
-  function pnlText(value) {
+  function scoreMoney(n) {
+    return (
+      "$" +
+      Math.round(n).toLocaleString("en-US", {
+        maximumFractionDigits: 0,
+      })
+    );
+  }
+
+  function formatPnlParts(value) {
     const pnl = value - BUY_DOLLARS;
     const pct = (pnl / BUY_DOLLARS) * 100;
     const sign = pnl >= 0 ? "+" : "−";
     const dollars =
+      sign +
       "$" +
-      Math.abs(pnl).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+      Math.round(Math.abs(pnl)).toLocaleString("en-US", {
+        maximumFractionDigits: 0,
       });
     const percent =
+      sign +
       Math.abs(pct).toLocaleString("en-US", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
-      }) + "%";
-    return sign + dollars + " (" + sign + percent + ")";
+      }) +
+      "%";
+    const tone = Math.abs(pnl) < 0.5 ? "flat" : pnl > 0 ? "up" : "down";
+    return { dollars, percent, tone };
+  }
+
+  function setScoreboard(value) {
+    const parts = formatPnlParts(value);
+    if (els.hudScore) els.hudScore.textContent = scoreMoney(value);
+    if (els.hudPnl) els.hudPnl.textContent = parts.dollars;
+    if (els.hudPct) els.hudPct.textContent = parts.percent;
+    if (els.hudChange) {
+      els.hudChange.classList.toggle("is-up", parts.tone === "up");
+      els.hudChange.classList.toggle("is-down", parts.tone === "down");
+      els.hudChange.classList.toggle("is-flat", parts.tone === "flat");
+    }
   }
 
   function sideSign() {
@@ -779,7 +806,7 @@
   function updateHud() {
     const sideTag = side === "short" ? "Short" : "Long";
     if (!holding) {
-      els.hudCash.textContent = "Cash " + money(cash) + "  " + pnlText(cash);
+      setScoreboard(cash);
       els.hudBuys.textContent =
         sideTag + " " + leverage + "× · Jump a log to invest";
       return;
@@ -788,11 +815,17 @@
     const q = quoteForSymbol(holding.symbol);
     const px = q?.last;
     if (value == null || px == null) {
-      els.hudCash.textContent = holding.symbol + " —";
+      if (els.hudScore) els.hudScore.textContent = "—";
+      if (els.hudPnl) els.hudPnl.textContent = "—";
+      if (els.hudPct) els.hudPct.textContent = "";
+      if (els.hudChange) {
+        els.hudChange.classList.remove("is-up", "is-down");
+        els.hudChange.classList.add("is-flat");
+      }
       els.hudBuys.textContent = sideTag + " " + leverage + "×";
       return;
     }
-    els.hudCash.textContent = money(value) + "  " + pnlText(value);
+    setScoreboard(value);
     els.hudBuys.textContent =
       holding.symbol +
       " · " +
