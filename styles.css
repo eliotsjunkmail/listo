@@ -36,7 +36,7 @@ body {
 .synth-toggle,
 .market {
   position: fixed;
-  top: max(0.75rem, env(safe-area-inset-top));
+  top: auto;
   z-index: 20;
   display: inline-flex;
   align-items: center;
@@ -55,8 +55,13 @@ body {
 
 .synth-toggle {
   left: max(0.75rem, env(safe-area-inset-left));
+  bottom: max(0.9rem, calc(env(safe-area-inset-bottom) + 0.6rem));
   cursor: pointer;
   font-family: inherit;
+}
+
+body.synth-on .synth-toggle {
+  bottom: max(4.7rem, calc(env(safe-area-inset-bottom) + 4.4rem));
 }
 
 .synth-pace {
@@ -138,7 +143,10 @@ body {
 }
 
 .market {
-  right: max(0.75rem, env(safe-area-inset-right));
+  left: 50%;
+  right: auto;
+  bottom: max(0.9rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
@@ -163,7 +171,7 @@ body {
 
 .hud {
   position: fixed;
-  top: max(3.1rem, calc(env(safe-area-inset-top) + 2.5rem));
+  top: max(0.75rem, calc(env(safe-area-inset-top) + 0.45rem));
   left: 50%;
   transform: translateX(-50%);
   z-index: 4;
