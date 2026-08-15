@@ -310,6 +310,83 @@ body.is-vertical .lane:last-child {
   border-right: 0;
 }
 
+.level {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  display: none;
+}
+
+body.synth-on .level:not([hidden]) {
+  display: block;
+}
+
+body.is-vertical .level {
+  left: 6%;
+  right: 6%;
+  height: 0;
+  border-top: 2px dashed rgba(255, 255, 255, 0.55);
+  transform: translateY(-50%);
+}
+
+body.is-horizontal .level {
+  top: 12%;
+  bottom: 12%;
+  width: 0;
+  border-left: 2px dashed rgba(255, 255, 255, 0.55);
+  transform: translateX(-50%);
+}
+
+.level-res {
+  border-color: rgba(255, 110, 110, 0.85) !important;
+}
+
+.level-sup {
+  border-color: rgba(80, 220, 170, 0.85) !important;
+}
+
+.level span {
+  position: absolute;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.28rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+body.is-vertical .level span {
+  left: 0;
+  top: -0.7rem;
+}
+
+body.is-horizontal .level span {
+  top: 0;
+  left: 0.25rem;
+}
+
+.level-res span {
+  color: #ffb4b4;
+}
+
+.level-sup span {
+  color: #9dffd4;
+}
+
+.level.is-broken {
+  animation: level-flash 0.55s ease;
+}
+
+@keyframes level-flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  40% {
+    opacity: 0.15;
+  }
+}
+
 .river::before {
   content: "";
   position: absolute;

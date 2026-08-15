@@ -41,10 +41,12 @@
       sym: document.getElementById("sym-" + i),
       last: document.getElementById("last-" + i),
       chg: document.getElementById("chg-" + i),
+      res: document.getElementById("res-" + i),
+      sup: document.getElementById("sup-" + i),
     })),
   };
 
-  /** @type {{symbol:string, open:number, last:number, bid:number, ask:number, change:number}[]} */
+  /** @type {{symbol:string, open:number, last:number, bid:number, ask:number, change:number, support?:number, resistance?:number, velocity?:number}[]} */
   let quotes = DEFAULTS.symbols.map((symbol) => seedQuote(symbol));
 
   /** frogLane: -1 bottom bank, 0 nearest river log, 1 mid, 2 far, 3 top bank.
@@ -155,14 +157,39 @@
       spread: 0.08,
     };
     const half = base.spread / 2;
-    return {
+    return withLevels({
       symbol,
       open: base.open,
       last: base.last,
       bid: base.last - half,
       ask: base.last + half,
       change: 0,
+    });
+  }
+
+  function withLevels(q) {
+    const gap = Math.max(q.open * 0.007, 0.04);
+    const support = q.last - gap * (0.85 + Math.random() * 0.5);
+    const resistance = q.last + gap * (0.85 + Math.random() * 0.5);
+    const speed = Math.max(q.open * 0.00018, 0.003);
+    return {
+      ...q,
+      support,
+      resistance,
+      velocity: (Math.random() > 0.5 ? 1 : -1) * speed,
     };
+  }
+
+  function ensureLevels(q) {
+    if (
+      Number.isFinite(q.support) &&
+      Number.isFinite(q.resistance) &&
+      q.resistance > q.support &&
+      Number.isFinite(q.velocity)
+    ) {
+      return q;
+    }
+    return withLevels(q);
   }
 
   function slimPrice(n) {
@@ -359,10 +386,55 @@
       log.chg.textContent = slimChange(q.change);
       log.el.classList.toggle("is-up", q.change > 0.004);
       log.el.classList.toggle("is-down", q.change < -0.004);
+
+      layoutLevelLines(i, q, vertical, lane, worldW);
     });
 
     placeFrog();
     updateHud();
+  }
+
+  function layoutLevelLines(i, q, vertical, lane, worldW) {
+    const resEl = els.logs[i].res;
+    const supEl = els.logs[i].sup;
+    if (!resEl || !supEl) return;
+    const synth = document.body.classList.contains("synth-on");
+    if (
+      !synth ||
+      !Number.isFinite(q.support) ||
+      !Number.isFinite(q.resistance)
+    ) {
+      resEl.hidden = true;
+      supEl.hidden = true;
+      return;
+    }
+    resEl.hidden = false;
+    supEl.hidden = false;
+
+    if (vertical) {
+      const laneH = lane.clientHeight || 300;
+      const center = laneH / 2;
+      const scale = pxPerDollar(q.open, laneH);
+      const resY = center - (q.resistance - q.open) * scale;
+      const supY = center - (q.support - q.open) * scale;
+      resEl.style.top = resY + "px";
+      resEl.style.left = "";
+      supEl.style.top = supY + "px";
+      supEl.style.left = "";
+      resEl.querySelector("span").textContent = "R " + slimPrice(q.resistance);
+      supEl.querySelector("span").textContent = "S " + slimPrice(q.support);
+    } else {
+      const center = worldW / 2;
+      const scale = pxPerDollar(q.open, worldW);
+      const resX = center + (q.resistance - q.open) * scale;
+      const supX = center + (q.support - q.open) * scale;
+      resEl.style.left = resX + "px";
+      resEl.style.top = "";
+      supEl.style.left = supX + "px";
+      supEl.style.top = "";
+      resEl.querySelector("span").textContent = "R " + slimPrice(q.resistance);
+      supEl.querySelector("span").textContent = "S " + slimPrice(q.support);
+    }
   }
 
   /** Horizontal rows: lane 0=nearest maps to log index 2. Vertical columns: lane == log index. */
@@ -656,24 +728,82 @@
   }
 
   function tickSynthetic() {
-    const { stepScale, maxMove, meanRevert } = synthParams(loadSettings().pace);
-    quotes = quotes.map((q) => {
-      const step = Math.max(q.open * 0.00012, 0.002) * stepScale;
-      const towardOpen = (q.open - q.last) * meanRevert;
-      const drift = (Math.random() - 0.5) * step + towardOpen;
-      let last = Math.max(0.5, q.last + drift);
-      const cap = q.open * maxMove;
-      last = Math.min(q.open + cap, Math.max(q.open - cap, last));
+    const pace = loadSettings().pace;
+    const { stepScale, maxMove, meanRevert } = synthParams(pace);
+    // Higher pace → slightly more breakouts
+    const breakChance = 0.08 + ((clampPace(pace) - 1) / 9) * 0.12;
+
+    quotes = quotes.map((raw) => {
+      let q = ensureLevels(raw);
+      const noise = (Math.random() - 0.5) * Math.max(q.open * 0.00008, 0.001) * stepScale;
+      const towardOpen = (q.open - q.last) * meanRevert * 0.35;
+      let velocity = q.velocity + towardOpen * 0.15 + noise;
+      const maxSpeed = Math.max(q.open * 0.00012, 0.002) * stepScale * 2.2;
+      velocity = Math.max(-maxSpeed, Math.min(maxSpeed, velocity));
+
+      let last = q.last + velocity;
+      let support = q.support;
+      let resistance = q.resistance;
+      let broke = null;
+
+      if (last >= resistance && velocity > 0) {
+        if (Math.random() < breakChance) {
+          // Breakout: old resistance becomes new support; stretch a new ceiling
+          support = resistance;
+          const extend = Math.max(q.open * 0.005, 0.03) * (0.8 + Math.random());
+          resistance = last + extend;
+          broke = "res";
+        } else {
+          last = resistance - Math.max(q.open * 0.00005, 0.001);
+          velocity = -Math.abs(velocity) * (0.65 + Math.random() * 0.45);
+        }
+      } else if (last <= support && velocity < 0) {
+        if (Math.random() < breakChance) {
+          resistance = support;
+          const extend = Math.max(q.open * 0.005, 0.03) * (0.8 + Math.random());
+          support = last - extend;
+          broke = "sup";
+        } else {
+          last = support + Math.max(q.open * 0.00005, 0.001);
+          velocity = Math.abs(velocity) * (0.65 + Math.random() * 0.45);
+        }
+      }
+
+      // Keep a usable channel width
+      if (resistance - support < q.open * 0.004) {
+        const mid = (support + resistance) / 2;
+        const half = Math.max(q.open * 0.004, 0.03);
+        support = mid - half;
+        resistance = mid + half;
+      }
+
+      const cap = q.open * maxMove * 1.4;
+      last = Math.min(q.open + cap, Math.max(q.open - cap, Math.max(0.5, last)));
       const half = Math.max(q.open * 0.00035, 0.01);
+
       return {
         ...q,
         last,
         bid: last - half,
         ask: last + half,
         change: last - q.open,
+        support,
+        resistance,
+        velocity,
+        _broke: broke,
       };
     });
+
     layoutLogs();
+    quotes.forEach((q, i) => {
+      if (!q._broke) return;
+      const el = q._broke === "res" ? els.logs[i].res : els.logs[i].sup;
+      if (!el) return;
+      el.classList.remove("is-broken");
+      void el.offsetWidth;
+      el.classList.add("is-broken");
+      window.setTimeout(() => el.classList.remove("is-broken"), 600);
+    });
   }
 
   /** Pace 1 = quiet day, 10 = wild session. Controls step size + tick rate. */
@@ -717,29 +847,37 @@
     persist(cfg);
     els.synthToggle.setAttribute("aria-pressed", on ? "true" : "false");
     els.synthLabel.textContent = on ? "Synthetic on" : "Synthetic off";
+    document.body.classList.toggle("synth-on", on);
     if (els.synthPace) els.synthPace.hidden = !on;
     window.clearInterval(synthTimer);
     if (on) {
       syncPaceUi(cfg.pace);
       quotes = cfg.symbols.map((s) => {
         const existing = quotes.find((q) => q.symbol === s);
-        return existing && Number.isFinite(existing.last) ? existing : seedQuote(s);
+        const base =
+          existing && Number.isFinite(existing.last) ? { ...existing } : seedQuote(s);
+        return withLevels(base);
       });
       quotes = quotes.map((q, i) => {
         const nudge = (i - 1) * q.open * 0.0015;
         const last = q.last + nudge;
         const half = Math.max(q.open * 0.00035, 0.01);
-        return {
+        return withLevels({
           ...q,
           last,
           bid: last - half,
           ask: last + half,
           change: last - q.open,
-        };
+        });
       });
       layoutLogs();
       startSynthTimer();
     } else {
+      els.logs.forEach(({ res, sup }) => {
+        if (res) res.hidden = true;
+        if (sup) sup.hidden = true;
+      });
+      document.body.classList.remove("synth-on");
       refresh(true);
     }
   }
