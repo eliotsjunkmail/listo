@@ -698,18 +698,6 @@
     );
   }
 
-  function splash() {
-    showToast("Missed the log — splash!");
-    frogLane = -1;
-    riding = false;
-    rideOffsetX = 0;
-    rideOffsetY = 0;
-    frogX = 0.5;
-    reachedGoal = false;
-    if (els.goal) els.goal.classList.remove("is-hit");
-    placeFrog();
-  }
-
   function finishMove() {
     placeFrog();
     window.setTimeout(() => {
@@ -720,13 +708,17 @@
 
   /**
    * Jump toward a log keeping the frog's approach position.
-   * Lands at that spot on the log; misses → splash back to start.
+   * Lands at that spot on the log; if it would miss, stay put (no splash).
    */
   function tryBoard(logIdx, nextLane, landX) {
     const worldBox = els.world.getBoundingClientRect();
-    const worldW = els.world.clientWidth;
     const size = els.frog.offsetWidth || 44;
     const prev = frogCenter();
+    const prevLane = frogLane;
+    const prevRiding = riding;
+    const prevOffX = rideOffsetX;
+    const prevOffY = rideOffsetY;
+    const prevFrogX = frogX;
     const x = landX != null ? landX : prev.x;
 
     frogLane = nextLane;
@@ -738,25 +730,24 @@
     const logTop = logBox.top - worldBox.top;
     const logBot = logBox.bottom - worldBox.top;
 
-    // Land where the frog would arrive: keep X, place onto the log along Y
     let landYTop;
     if (isVertical()) {
-      // From below → settle on the lower half of the log at this X
       const prefer = logBot - size - 6;
       landYTop = Math.min(logBot - size * 0.55, Math.max(logTop + 4, prefer));
     } else {
-      // Row jump: keep X, move to that lane's band on the log
       landYTop = Math.min(logBot - size * 0.55, Math.max(logTop + 4, laneY(nextLane)));
     }
 
     positionFrogAt(x, landYTop);
 
     if (!frogOverlapsLog(logIdx)) {
-      rideOffsetX = 0;
-      rideOffsetY = 0;
-      splash();
-      els.frog.classList.remove("is-jumping");
-      busy = false;
+      // Would land in water — cancel jump and stay where we were
+      frogLane = prevLane;
+      riding = prevRiding;
+      rideOffsetX = prevOffX;
+      rideOffsetY = prevOffY;
+      frogX = prevFrogX;
+      finishMove();
       return;
     }
 
