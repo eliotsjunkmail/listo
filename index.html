@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=99" />
+    <link rel="stylesheet" href="styles.css?v=100" />
   </head>
   <body class="is-vertical">
     <button type="button" class="synth-toggle" id="synth-toggle" aria-pressed="false">
@@ -24,8 +24,8 @@
       <span class="market-label" id="market-label">Market <span class="pill-value">closed</span></span>
     </div>
 
-    <button type="button" class="app-version" id="app-version" aria-label="Version 99. Tap to hard refresh">
-      v99
+    <button type="button" class="app-version" id="app-version" aria-label="Version 100. Tap to hard refresh">
+      v100
     </button>
 
     <header class="hud" aria-live="polite">
@@ -212,22 +212,24 @@
             autocomplete="nickname"
           />
         </label>
-        <label>
-          Lane 1
-          <input id="sym-a" type="text" maxlength="8" spellcheck="false" autocomplete="off" />
-        </label>
-        <label>
-          Lane 2
-          <input id="sym-b" type="text" maxlength="8" spellcheck="false" autocomplete="off" />
-        </label>
-        <label>
-          Lane 3
-          <input id="sym-c" type="text" maxlength="8" spellcheck="false" autocomplete="off" />
-        </label>
-        <label>
-          Lane 4
-          <input id="sym-d" type="text" maxlength="8" spellcheck="false" autocomplete="off" />
-        </label>
+        <div class="stocks-row" role="group" aria-label="Stocks">
+          <label>
+            Stock 1
+            <input id="sym-a" type="text" maxlength="8" spellcheck="false" autocomplete="off" />
+          </label>
+          <label>
+            Stock 2
+            <input id="sym-b" type="text" maxlength="8" spellcheck="false" autocomplete="off" />
+          </label>
+          <label>
+            Stock 3
+            <input id="sym-c" type="text" maxlength="8" spellcheck="false" autocomplete="off" />
+          </label>
+          <label>
+            Stock 4
+            <input id="sym-d" type="text" maxlength="8" spellcheck="false" autocomplete="off" />
+          </label>
+        </div>
         <label class="toggle-field">
           <span class="toggle-copy">
             <span class="toggle-title">Log motion</span>
@@ -242,7 +244,7 @@
             aria-label="Vertical log motion"
           />
         </label>
-        <label class="pace-field">
+        <label class="pace-field" hidden>
           <span class="pace-field-head">
             <span>Demo pace</span>
             <span id="pace-value">4</span>
@@ -256,17 +258,28 @@
             step="1"
             value="4"
             aria-label="Demo movement pace"
+            tabindex="-1"
           />
         </label>
-        <label class="check-field">
-          <input id="sound-on" type="checkbox" checked />
-          <span>Sound</span>
+        <label class="toggle-field">
+          <span class="toggle-copy">
+            <span class="toggle-title">Sound</span>
+            <span class="toggle-sub" id="sound-label">On</span>
+          </span>
+          <input
+            id="sound-on"
+            class="switch-input"
+            type="checkbox"
+            role="switch"
+            checked
+            aria-label="Sound effects"
+          />
         </label>
         <button type="submit" class="done">Done</button>
       </form>
     </div>
 
-    <script src="config.js?v=99"></script>
-    <script src="app.js?v=99"></script>
+    <script src="config.js?v=100"></script>
+    <script src="app.js?v=100"></script>
   </body>
 </html>

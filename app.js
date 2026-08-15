@@ -43,6 +43,7 @@
     orientationToggle: document.getElementById("orientation-toggle"),
     orientationLabel: document.getElementById("orientation-label"),
     soundOn: document.getElementById("sound-on"),
+    soundLabel: document.getElementById("sound-label"),
     settingsPlayerName: document.getElementById("settings-player-name"),
     hudScore: document.getElementById("hud-score"),
     hudPnl: document.getElementById("hud-pnl"),
@@ -924,38 +925,77 @@
     return audioCtx;
   }
 
-  /** Short hop / step blips for frog movement (respects settings sound flag). */
+  function tone(ctx, { type, freq, freqEnd, start, dur, peak, when = 0 }) {
+    const t0 = ctx.currentTime + when;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (freqEnd != null) {
+      osc.frequency.exponentialRampToValueAtTime(Math.max(freqEnd, 1), t0 + dur);
+    }
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(peak, t0 + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+  }
+
+  /** Hop / step blips for frog movement (respects settings sound flag). */
   function playFrogSound(kind) {
     if (!loadSettings().sound) return;
     try {
       const ctx = ensureAudio();
       if (!ctx) return;
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
       if (kind === "step") {
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(220, now);
-        osc.frequency.exponentialRampToValueAtTime(340, now + 0.045);
-        gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.exponentialRampToValueAtTime(0.09, now + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
-        osc.start(now);
-        osc.stop(now + 0.09);
-      } else {
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(260, now);
-        osc.frequency.exponentialRampToValueAtTime(560, now + 0.07);
-        gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.exponentialRampToValueAtTime(0.16, now + 0.012);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
-        osc.start(now);
-        osc.stop(now + 0.15);
+        tone(ctx, {
+          type: "triangle",
+          freq: 240,
+          freqEnd: 360,
+          dur: 0.07,
+          peak: 0.11,
+        });
+        return;
       }
+      // Jump: soft body + bright hop chirp
+      tone(ctx, {
+        type: "sine",
+        freq: 180,
+        freqEnd: 110,
+        dur: 0.12,
+        peak: 0.14,
+      });
+      tone(ctx, {
+        type: "triangle",
+        freq: 420,
+        freqEnd: 720,
+        dur: 0.16,
+        peak: 0.2,
+        when: 0.02,
+      });
+      tone(ctx, {
+        type: "sine",
+        freq: 880,
+        freqEnd: 520,
+        dur: 0.1,
+        peak: 0.08,
+        when: 0.06,
+      });
     } catch {
       /* ignore autoplay / audio errors */
+    }
+  }
+
+  function syncSoundUi(on) {
+    const enabled = on !== false;
+    if (els.soundOn) {
+      els.soundOn.checked = enabled;
+      els.soundOn.setAttribute("aria-checked", enabled ? "true" : "false");
+    }
+    if (els.soundLabel) {
+      els.soundLabel.textContent = enabled ? "On" : "Off";
     }
   }
 
@@ -1850,7 +1890,7 @@
     els.symC.value = cfg.symbols[2];
     if (els.symD) els.symD.value = cfg.symbols[3];
     syncOrientationUi(cfg.orientation);
-    if (els.soundOn) els.soundOn.checked = cfg.sound !== false;
+    syncSoundUi(cfg.sound !== false);
     if (els.settingsPlayerName) els.settingsPlayerName.value = readStoredPlayerName();
     syncPaceUi(cfg.pace);
     els.scrim.hidden = false;
@@ -1907,7 +1947,7 @@
   els.symC.value = saved.symbols[2];
   if (els.symD) els.symD.value = saved.symbols[3];
   syncOrientationUi(saved.orientation);
-  if (els.soundOn) els.soundOn.checked = saved.sound !== false;
+  syncSoundUi(saved.sound !== false);
   quotes = saved.symbols.map((s) => seedQuote(s));
 
   frogX = 0.5;
@@ -1932,6 +1972,18 @@
 
   els.orientationToggle?.addEventListener("change", () => {
     syncOrientationUi(orientationFromToggle());
+  });
+
+  els.soundOn?.addEventListener("change", () => {
+    const on = !!els.soundOn.checked;
+    syncSoundUi(on);
+    const cfg = loadSettings();
+    cfg.sound = on;
+    persist(cfg);
+    if (on) {
+      ensureAudio();
+      playFrogSound("hop");
+    }
   });
 
   els.paceSlider?.addEventListener("input", () => {
@@ -2053,6 +2105,10 @@
     e.preventDefault();
     ensureAudio();
     move(dir);
+  });
+
+  els.pad.addEventListener("pointerdown", () => {
+    ensureAudio();
   });
 
   els.pad.addEventListener("click", (e) => {
