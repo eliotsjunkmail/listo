@@ -743,9 +743,14 @@
       return;
     }
 
-    // Must be roughly aimed at this log (within half a log-width of its edge)
-    const reach = Math.max(logRight - logLeft, size) * 0.55;
-    if (aimX < logLeft - reach || aimX > logRight + reach) {
+    // Sideways jumps must be aimed near the log; upward from the bank
+    // always clamps onto the lane's log at the nearest landing point.
+    const fromBank = prevLane < 0;
+    const reach = Math.max(logRight - logLeft, size) * 0.65;
+    if (
+      !fromBank &&
+      (aimX < logLeft - reach || aimX > logRight + reach)
+    ) {
       frogLane = prevLane;
       riding = prevRiding;
       rideOffsetX = prevOffX;
