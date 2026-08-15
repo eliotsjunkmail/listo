@@ -9,6 +9,7 @@
     synthetic: true,
     pace: 4,
     orientation: "vertical",
+    sound: true,
   };
 
   const SYNTH_BASE = {
@@ -37,6 +38,7 @@
     paceSlider: document.getElementById("pace-slider"),
     paceValue: document.getElementById("pace-value"),
     orientation: document.getElementById("orientation"),
+    soundOn: document.getElementById("sound-on"),
     hudScore: document.getElementById("hud-score"),
     hudPnl: document.getElementById("hud-pnl"),
     hudChange: document.getElementById("hud-change"),
@@ -76,6 +78,8 @@
   let leverageSlideUntil = 0;
   let leverageSlideArmed = false;
   let levelTipTimer = 0;
+  /** @type {AudioContext|null} */
+  let audioCtx = null;
 
   /** @type {{symbol:string, shares:number, invested:number, entry:number}|null} */
   let holding = null;
@@ -139,6 +143,7 @@
       synthetic: Boolean(parsed.synthetic),
       pace: clampPace(parsed.pace ?? DEFAULTS.pace),
       orientation: normalizeOrientation(parsed.orientation ?? DEFAULTS.orientation),
+      sound: parsed.sound !== false,
     };
   }
 
@@ -160,6 +165,7 @@
       synthetic: DEFAULTS.synthetic,
       pace: DEFAULTS.pace,
       orientation: DEFAULTS.orientation,
+      sound: DEFAULTS.sound,
     };
   }
 
@@ -807,6 +813,51 @@
     showToast(sideLabel());
   }
 
+  function ensureAudio() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    if (!audioCtx) audioCtx = new AC();
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume().catch(() => {});
+    }
+    return audioCtx;
+  }
+
+  /** Short hop / step blips for frog movement (respects settings sound flag). */
+  function playFrogSound(kind) {
+    if (!loadSettings().sound) return;
+    try {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      if (kind === "step") {
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.exponentialRampToValueAtTime(340, now + 0.045);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.09, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+        osc.start(now);
+        osc.stop(now + 0.09);
+      } else {
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(260, now);
+        osc.frequency.exponentialRampToValueAtTime(560, now + 0.07);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.16, now + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      }
+    } catch {
+      /* ignore autoplay / audio errors */
+    }
+  }
+
   /** Left/right on a log: step leverage 1←→5. Returns false if already at that edge. */
   function shiftLeverageOnLog(dir) {
     const delta = dir === "right" ? 1 : -1;
@@ -1029,13 +1080,17 @@
 
     // On a log, left/right walk leverage seats (1× left … 5× right)
     if (riding && (dir === "left" || dir === "right")) {
-      if (shiftLeverageOnLog(dir)) return;
+      if (shiftLeverageOnLog(dir)) {
+        playFrogSound("step");
+        return;
+      }
       // At seat edge in vertical mode: jump to the neighboring stock column
       if (isVertical() && frogLane >= 0 && frogLane <= LAST_LOG_LANE) {
         const next = Math.min(LAST_LOG_LANE, Math.max(0, frogLane + (dir === "right" ? 1 : -1)));
         if (next === frogLane) return;
         busy = true;
         els.frog.classList.add("is-jumping");
+        playFrogSound("hop");
         const colW = els.river.clientWidth / LANE_COUNT;
         const landX = frogCenter().x + (dir === "right" ? colW : -colW);
         tryBoard(next, next, landX);
@@ -1046,6 +1101,7 @@
 
     busy = true;
     els.frog.classList.add("is-jumping");
+    playFrogSound("hop");
 
     if (isVertical()) {
       if (dir === "left" || dir === "right") {
@@ -1328,6 +1384,7 @@
     els.symC.value = cfg.symbols[2];
     if (els.symD) els.symD.value = cfg.symbols[3];
     if (els.orientation) els.orientation.value = cfg.orientation;
+    if (els.soundOn) els.soundOn.checked = cfg.sound !== false;
     syncPaceUi(cfg.pace);
     els.scrim.hidden = false;
     els.symA.focus();
@@ -1345,6 +1402,7 @@
         synthetic: loadSettings().synthetic,
         pace: clampPace(els.paceSlider?.value ?? loadSettings().pace),
         orientation: normalizeOrientation(els.orientation?.value),
+        sound: els.soundOn ? !!els.soundOn.checked : true,
       };
       persist(next);
       holding = null;
@@ -1366,6 +1424,7 @@
   els.symC.value = saved.symbols[2];
   if (els.symD) els.symD.value = saved.symbols[3];
   if (els.orientation) els.orientation.value = saved.orientation;
+  if (els.soundOn) els.soundOn.checked = saved.sound !== false;
   quotes = saved.symbols.map((s) => seedQuote(s));
 
   frogX = 0.5;
@@ -1436,12 +1495,14 @@
     const dir = map[e.key];
     if (!dir) return;
     e.preventDefault();
+    ensureAudio();
     move(dir);
   });
 
   els.pad.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-dir]");
     if (!btn) return;
+    ensureAudio();
     move(btn.getAttribute("data-dir"));
   });
 
