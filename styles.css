@@ -319,8 +319,8 @@ body {
 
 .bank-bottom {
   bottom: 0;
-  height: 28vh;
-  min-height: 160px;
+  height: 14vh;
+  min-height: 96px;
   border-top: 4px solid rgba(0, 0, 0, 0.25);
   background:
     linear-gradient(0deg, rgba(255, 255, 255, 0.08), transparent 35%),
@@ -332,10 +332,10 @@ body {
   left: 0;
   right: 0;
   top: var(--hud-clearance);
-  bottom: 28vh;
+  bottom: 14vh;
   z-index: 1;
   display: grid;
-  grid-template-rows: repeat(3, 1fr);
+  grid-template-rows: repeat(4, 1fr);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 20%, transparent 80%, rgba(0, 0, 0, 0.2)),
     linear-gradient(180deg, var(--water-a), var(--water-b));
@@ -343,7 +343,7 @@ body {
 }
 
 body.is-vertical .river {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   grid-template-rows: 1fr;
 }
 
@@ -728,7 +728,7 @@ body.is-vertical .log.is-down .log-wood {
   z-index: 3;
   left: 50%;
   top: auto;
-  bottom: calc(14vh + 12px);
+  bottom: calc(7vh + 8px);
   padding: 0;
   border: 0;
   margin: 0;

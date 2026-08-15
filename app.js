@@ -1,8 +1,11 @@
 (() => {
   const STORAGE_KEY = "frogger-stocks-v2";
   const BUY_DOLLARS = 100_000;
+  const LANE_COUNT = 4;
+  const LAST_LOG_LANE = LANE_COUNT - 1;
+  const TOP_BANK_LANE = LANE_COUNT;
   const DEFAULTS = {
-    symbols: ["SNAP", "META", "GOOG"],
+    symbols: ["SNAP", "META", "GOOG", "NVDA"],
     synthetic: true,
     pace: 4,
     orientation: "vertical",
@@ -12,6 +15,7 @@
     SNAP: { open: 10.4, last: 10.4, spread: 0.04 },
     META: { open: 512, last: 512, spread: 0.35 },
     GOOG: { open: 178, last: 178, spread: 0.12 },
+    NVDA: { open: 120, last: 120, spread: 0.2 },
   };
 
   const els = {
@@ -25,6 +29,7 @@
     symA: document.getElementById("sym-a"),
     symB: document.getElementById("sym-b"),
     symC: document.getElementById("sym-c"),
+    symD: document.getElementById("sym-d"),
     market: document.getElementById("market"),
     marketLabel: document.getElementById("market-label"),
     synthToggle: document.getElementById("synth-toggle"),
@@ -38,7 +43,7 @@
     hudBuys: document.getElementById("hud-buys"),
     toast: document.getElementById("toast"),
     pad: document.getElementById("pad"),
-    logs: [0, 1, 2].map((i) => ({
+    logs: [0, 1, 2, 3].map((i) => ({
       el: document.getElementById("log-" + i),
       sym: document.getElementById("sym-" + i),
       last: document.getElementById("last-" + i),
@@ -50,12 +55,13 @@
   /** @type {{symbol:string, open:number, last:number, bid:number, ask:number, change:number, support?:number, resistance?:number, velocity?:number}[]} */
   let quotes = DEFAULTS.symbols.map((symbol) => seedQuote(symbol));
   /** Previous last prices — used to infer trail direction when velocity is missing */
-  let prevLast = [null, null, null];
+  let prevLast = [null, null, null, null];
   /** Sticky trail direction per lane so brief flat ticks don't flicker the wake off */
-  let trailDir = [0, 0, 0];
+  let trailDir = [0, 0, 0, 0];
 
-  /** frogLane: -1 bottom bank, 0 nearest river log, 1 mid, 2 far, 3 top bank.
-   *  DOM logs are top→bottom as indices 0,1,2 so nearest is log index 2. */
+  /** frogLane: -1 bottom bank, 0..3 river logs, 4 top bank.
+   *  Horizontal: DOM logs top→bottom are 0..3 so nearest is log index 3.
+   *  Vertical: lane index matches log / column index. */
   let frogLane = -1;
   let frogX = 0.5;
   /** Offset of frog center from log center while riding */
@@ -125,13 +131,11 @@
     const parsed = JSON.parse(raw);
     const symbols = Array.isArray(parsed.symbols)
       ? parsed.symbols
-      : [parsed.symA, parsed.symB, parsed.symC];
+      : [parsed.symA, parsed.symB, parsed.symC, parsed.symD];
     return {
-      symbols: [
-        normalizeSymbol(symbols?.[0], DEFAULTS.symbols[0]),
-        normalizeSymbol(symbols?.[1], DEFAULTS.symbols[1]),
-        normalizeSymbol(symbols?.[2], DEFAULTS.symbols[2]),
-      ],
+      symbols: Array.from({ length: LANE_COUNT }, (_, i) =>
+        normalizeSymbol(symbols?.[i], DEFAULTS.symbols[i])
+      ),
       synthetic: Boolean(parsed.synthetic),
       pace: clampPace(parsed.pace ?? DEFAULTS.pace),
       orientation: normalizeOrientation(parsed.orientation ?? DEFAULTS.orientation),
@@ -423,7 +427,7 @@
         const margin = h * 0.28 + 36;
         placedMid = Math.min(laneH - margin, Math.max(margin, placedMid));
 
-        const colW = lane.clientWidth || worldW / 3;
+        const colW = lane.clientWidth || worldW / LANE_COUNT;
         log.el.style.left = "50%";
         log.el.style.width = Math.min(colW * 0.72, 120) + "px";
         log.el.style.height = h + "px";
@@ -482,7 +486,7 @@
 
     if (vertical) {
       const laneH = lane.clientHeight || 300;
-      const laneW = lane.clientWidth || els.world.clientWidth / 3;
+      const laneW = lane.clientWidth || els.world.clientWidth / LANE_COUNT;
       const center = laneH / 2;
       const scale = pxPerDollar(q.open, laneH);
       const resY = center - (q.resistance - q.open) * scale;
@@ -535,10 +539,10 @@
     }, 1800);
   }
 
-  /** Horizontal rows: lane 0=nearest maps to log index 2. Vertical columns: lane == log index. */
+  /** Horizontal rows: lane 0=nearest maps to log index LAST_LOG_LANE. Vertical columns: lane == log index. */
   function logIndexForLane(lane) {
-    if (lane < 0 || lane > 2) return -1;
-    return isVertical() ? lane : 2 - lane;
+    if (lane < 0 || lane > LAST_LOG_LANE) return -1;
+    return isVertical() ? lane : LAST_LOG_LANE - lane;
   }
 
   function columnFromFrogX() {
@@ -546,7 +550,7 @@
     const world = els.world.getBoundingClientRect();
     const x = frogX * (els.world.clientWidth || 1);
     const rel = (x + world.left - river.left) / Math.max(1, river.width);
-    return Math.min(2, Math.max(0, Math.floor(rel * 3)));
+    return Math.min(LAST_LOG_LANE, Math.max(0, Math.floor(rel * LANE_COUNT)));
   }
 
   function laneY(lane) {
@@ -559,15 +563,15 @@
       // Start on the bottom bank at the water's edge
       return riverTop + riverH + 4;
     }
-    if (lane > 2) {
+    if (lane > LAST_LOG_LANE) {
       return Math.max(12, worldH * 0.09 - frog / 2);
     }
     if (isVertical()) {
       // Resting Y before ride snap — mid river
       return riverTop + riverH / 2 - frog / 2;
     }
-    const laneH = riverH / 3;
-    const row = 2 - lane;
+    const laneH = riverH / LANE_COUNT;
+    const row = LAST_LOG_LANE - lane;
     return riverTop + row * laneH + laneH / 2 - frog / 2;
   }
 
@@ -1027,12 +1031,12 @@
     if (riding && (dir === "left" || dir === "right")) {
       if (shiftLeverageOnLog(dir)) return;
       // At seat edge in vertical mode: jump to the neighboring stock column
-      if (isVertical() && frogLane >= 0 && frogLane <= 2) {
-        const next = Math.min(2, Math.max(0, frogLane + (dir === "right" ? 1 : -1)));
+      if (isVertical() && frogLane >= 0 && frogLane <= LAST_LOG_LANE) {
+        const next = Math.min(LAST_LOG_LANE, Math.max(0, frogLane + (dir === "right" ? 1 : -1)));
         if (next === frogLane) return;
         busy = true;
         els.frog.classList.add("is-jumping");
-        const colW = els.river.clientWidth / 3;
+        const colW = els.river.clientWidth / LANE_COUNT;
         const landX = frogCenter().x + (dir === "right" ? colW : -colW);
         tryBoard(next, next, landX);
         return;
@@ -1045,7 +1049,7 @@
 
     if (isVertical()) {
       if (dir === "left" || dir === "right") {
-        if (frogLane < 0 || frogLane > 2) {
+        if (frogLane < 0 || frogLane > LAST_LOG_LANE) {
           frogX = Math.min(0.92, Math.max(0.08, frogX + (dir === "right" ? 0.12 : -0.12)));
           riding = false;
           rideOffsetX = 0;
@@ -1053,12 +1057,12 @@
           finishMove();
           return;
         }
-        const next = Math.min(2, Math.max(0, frogLane + (dir === "right" ? 1 : -1)));
+        const next = Math.min(LAST_LOG_LANE, Math.max(0, frogLane + (dir === "right" ? 1 : -1)));
         if (next === frogLane) {
           finishMove();
           return;
         }
-        const colW = els.river.clientWidth / 3;
+        const colW = els.river.clientWidth / LANE_COUNT;
         const landX = frogCenter().x + (dir === "right" ? colW : -colW);
         tryBoard(next, next, landX);
         return;
@@ -1069,8 +1073,8 @@
           tryBoard(col, col, frogCenter().x);
           return;
         }
-        if (frogLane <= 2) {
-          frogLane = 3;
+        if (frogLane <= LAST_LOG_LANE) {
+          frogLane = TOP_BANK_LANE;
           riding = false;
           rideOffsetX = 0;
           rideOffsetY = 0;
@@ -1082,11 +1086,12 @@
         return;
       }
       if (dir === "down") {
-        if (frogLane > 2) {
-          tryBoard(1, 1, frogCenter().x);
+        if (frogLane > LAST_LOG_LANE) {
+          const col = columnFromFrogX();
+          tryBoard(col, col, frogCenter().x);
           return;
         }
-        if (frogLane >= 0 && frogLane <= 2) {
+        if (frogLane >= 0 && frogLane <= LAST_LOG_LANE) {
           frogLane = -1;
           riding = false;
           rideOffsetX = 0;
@@ -1111,7 +1116,7 @@
       rideOffsetX = 0;
       rideOffsetY = 0;
     } else if (dir === "up") {
-      const next = Math.min(3, frogLane + 1);
+      const next = Math.min(TOP_BANK_LANE, frogLane + 1);
       const logIdx = logIndexForLane(next);
       if (logIdx >= 0) {
         tryBoard(logIdx, next, frogCenter().x);
@@ -1121,7 +1126,7 @@
       riding = false;
       rideOffsetX = 0;
       rideOffsetY = 0;
-      if (next === 3) sellToCash();
+      if (next === TOP_BANK_LANE) sellToCash();
     } else if (dir === "down") {
       const next = Math.max(-1, frogLane - 1);
       const logIdx = logIndexForLane(next);
@@ -1321,6 +1326,7 @@
     els.symA.value = cfg.symbols[0];
     els.symB.value = cfg.symbols[1];
     els.symC.value = cfg.symbols[2];
+    if (els.symD) els.symD.value = cfg.symbols[3];
     if (els.orientation) els.orientation.value = cfg.orientation;
     syncPaceUi(cfg.pace);
     els.scrim.hidden = false;
@@ -1334,6 +1340,7 @@
           normalizeSymbol(els.symA.value, DEFAULTS.symbols[0]),
           normalizeSymbol(els.symB.value, DEFAULTS.symbols[1]),
           normalizeSymbol(els.symC.value, DEFAULTS.symbols[2]),
+          normalizeSymbol(els.symD?.value, DEFAULTS.symbols[3]),
         ],
         synthetic: loadSettings().synthetic,
         pace: clampPace(els.paceSlider?.value ?? loadSettings().pace),
@@ -1357,6 +1364,7 @@
   els.symA.value = saved.symbols[0];
   els.symB.value = saved.symbols[1];
   els.symC.value = saved.symbols[2];
+  if (els.symD) els.symD.value = saved.symbols[3];
   if (els.orientation) els.orientation.value = saved.orientation;
   quotes = saved.symbols.map((s) => seedQuote(s));
 

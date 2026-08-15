@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=76" />
+    <link rel="stylesheet" href="styles.css?v=77" />
   </head>
   <body class="is-vertical">
     <button type="button" class="synth-toggle" id="synth-toggle" aria-pressed="false">
@@ -24,7 +24,7 @@
       <span class="market-label" id="market-label">Market</span>
     </div>
 
-    <div class="app-version" id="app-version" aria-label="Version 76">v76</div>
+    <div class="app-version" id="app-version" aria-label="Version 77">v77</div>
 
     <header class="hud" aria-live="polite">
       <div class="hud-top">
@@ -99,6 +99,21 @@
             <span class="level-tip" hidden></span>
           </button>
         </div>
+        <div class="lane" data-lane="3">
+          <div class="log" id="log-3" data-index="3">
+            <div class="log-trail" aria-hidden="true"></div>
+            <div class="log-wood">
+              <span class="log-sym" id="sym-3">NVDA</span>
+              <span class="log-last" id="last-3">—</span>
+            </div>
+          </div>
+          <button type="button" class="level level-res" id="res-3" hidden>
+            <span class="level-tip" hidden></span>
+          </button>
+          <button type="button" class="level level-sup" id="sup-3" hidden>
+            <span class="level-tip" hidden></span>
+          </button>
+        </div>
       </div>
 
       <div class="bank bank-bottom" aria-hidden="true"></div>
@@ -140,6 +155,10 @@
           <input id="sym-c" type="text" maxlength="8" spellcheck="false" autocomplete="off" />
         </label>
         <label>
+          Lane 4
+          <input id="sym-d" type="text" maxlength="8" spellcheck="false" autocomplete="off" />
+        </label>
+        <label>
           Log motion
           <select id="orientation">
             <option value="vertical">Vertical — logs move up / down</option>
@@ -166,6 +185,6 @@
       </form>
     </div>
 
-    <script src="app.js?v=76"></script>
+    <script src="app.js?v=77"></script>
   </body>
 </html>

@@ -1,6 +1,6 @@
 # Frogger
 
-Three stock logs on a river. SNAP, META, and GOOG by default (editable in settings).
+Four stock logs on a river. SNAP, META, GOOG, and NVDA by default (editable in settings).
 
 - Log **center** starts at screen center from the **open**, then drifts with the day’s **last**
 - Log **left** edge tracks the **bid**, **right** edge the **ask**
