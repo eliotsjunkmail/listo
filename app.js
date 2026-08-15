@@ -53,6 +53,9 @@
    *  DOM logs are top→bottom as indices 0,1,2 so nearest is log index 2. */
   let frogLane = -1;
   let frogX = 0.5;
+  /** Offset of frog center from log center while riding */
+  let rideOffsetX = 0;
+  let rideOffsetY = 0;
   let riding = false;
   let busy = false;
   let toastTimer = 0;
@@ -507,18 +510,13 @@
 
     if (riding && logIdx >= 0) {
       const logBox = els.logs[logIdx].el.getBoundingClientRect();
-      const midX = logBox.left + logBox.width / 2 - worldBox.left;
-      const midY = logBox.top + logBox.height / 2 - worldBox.top - size / 2;
-      frog.style.left = midX + "px";
-      frog.style.top = midY + "px";
-      frogX = midX / worldW;
-    } else if (isVertical() && frogLane >= 0 && frogLane <= 2) {
-      const lane = els.logs[frogLane].el.parentElement;
-      const laneBox = lane.getBoundingClientRect();
-      const midX = laneBox.left + laneBox.width / 2 - worldBox.left;
-      frog.style.left = midX + "px";
-      frog.style.top = laneY(frogLane) + "px";
-      frogX = midX / worldW;
+      const logCx = logBox.left + logBox.width / 2 - worldBox.left;
+      const logCy = logBox.top + logBox.height / 2 - worldBox.top;
+      const fx = logCx + rideOffsetX;
+      const fy = logCy + rideOffsetY - size / 2;
+      frog.style.left = fx + "px";
+      frog.style.top = fy + "px";
+      frogX = fx / worldW;
     } else {
       const x = Math.min(worldW - size / 2 - 8, Math.max(size / 2 + 8, frogX * worldW));
       frog.style.left = x + "px";
@@ -526,6 +524,26 @@
     }
 
     frog.style.bottom = "auto";
+  }
+
+  function frogCenter() {
+    const frog = els.frog.getBoundingClientRect();
+    const world = els.world.getBoundingClientRect();
+    return {
+      x: frog.left + frog.width / 2 - world.left,
+      y: frog.top + frog.height / 2 - world.top,
+      size: frog.height || 44,
+    };
+  }
+
+  function positionFrogAt(landX, landYTop) {
+    const worldW = els.world.clientWidth;
+    const size = els.frog.offsetWidth || 44;
+    const x = Math.min(worldW - size / 2 - 8, Math.max(size / 2 + 8, landX));
+    els.frog.style.left = x + "px";
+    els.frog.style.top = landYTop + "px";
+    els.frog.style.bottom = "auto";
+    frogX = x / worldW;
   }
 
   function showToast(msg) {
@@ -634,17 +652,21 @@
   function frogOverlapsLog(index) {
     const frog = els.frog.getBoundingClientRect();
     const log = els.logs[index].el.getBoundingClientRect();
-    const pad = 8;
-    const hitX = frog.left + pad < log.right && frog.right - pad > log.left;
-    if (!isVertical()) return hitX;
-    const hitY = frog.top + pad < log.bottom && frog.bottom - pad > log.top;
-    return hitX && hitY;
+    const pad = 6;
+    return (
+      frog.left + pad < log.right &&
+      frog.right - pad > log.left &&
+      frog.top + pad < log.bottom &&
+      frog.bottom - pad > log.top
+    );
   }
 
   function splash() {
     showToast("Missed the log — splash!");
     frogLane = -1;
     riding = false;
+    rideOffsetX = 0;
+    rideOffsetY = 0;
     frogX = 0.5;
     placeFrog();
   }
@@ -657,19 +679,54 @@
     }, 220);
   }
 
-  function tryBoard(logIdx, nextLane) {
+  /**
+   * Jump toward a log keeping the frog's approach position.
+   * Lands at that spot on the log; misses → splash back to start.
+   */
+  function tryBoard(logIdx, nextLane, landX) {
+    const worldBox = els.world.getBoundingClientRect();
+    const worldW = els.world.clientWidth;
+    const size = els.frog.offsetWidth || 44;
+    const prev = frogCenter();
+    const x = landX != null ? landX : prev.x;
+
     frogLane = nextLane;
-    riding = true;
-    placeFrog();
-    if (isVertical() || frogOverlapsLog(logIdx)) {
-      landOnLog(logIdx);
-      finishMove();
+    riding = false;
+
+    const logBox = els.logs[logIdx].el.getBoundingClientRect();
+    const logCx = logBox.left + logBox.width / 2 - worldBox.left;
+    const logCy = logBox.top + logBox.height / 2 - worldBox.top;
+    const logTop = logBox.top - worldBox.top;
+    const logBot = logBox.bottom - worldBox.top;
+
+    // Land where the frog would arrive: keep X, place onto the log along Y
+    let landYTop;
+    if (isVertical()) {
+      // From below → settle on the lower half of the log at this X
+      const prefer = logBot - size - 6;
+      landYTop = Math.min(logBot - size * 0.55, Math.max(logTop + 4, prefer));
+    } else {
+      // Row jump: keep X, move to that lane's band on the log
+      landYTop = Math.min(logBot - size * 0.55, Math.max(logTop + 4, laneY(nextLane)));
+    }
+
+    positionFrogAt(x, landYTop);
+
+    if (!frogOverlapsLog(logIdx)) {
+      rideOffsetX = 0;
+      rideOffsetY = 0;
+      splash();
+      els.frog.classList.remove("is-jumping");
+      busy = false;
       return;
     }
-    riding = false;
-    splash();
-    els.frog.classList.remove("is-jumping");
-    busy = false;
+
+    const landed = frogCenter();
+    rideOffsetX = landed.x - logCx;
+    rideOffsetY = landed.y - logCy;
+    riding = true;
+    landOnLog(logIdx);
+    finishMove();
   }
 
   function move(dir) {
@@ -682,6 +739,8 @@
         if (frogLane < 0 || frogLane > 2) {
           frogX = Math.min(0.92, Math.max(0.08, frogX + (dir === "right" ? 0.12 : -0.12)));
           riding = false;
+          rideOffsetX = 0;
+          rideOffsetY = 0;
           finishMove();
           return;
         }
@@ -690,18 +749,23 @@
           finishMove();
           return;
         }
-        tryBoard(next, next);
+        // Jump sideways; keep current Y, shift X toward the next column
+        const colW = els.river.clientWidth / 3;
+        const landX = frogCenter().x + (dir === "right" ? colW : -colW);
+        tryBoard(next, next, landX);
         return;
       }
       if (dir === "up") {
         if (frogLane < 0) {
           const col = columnFromFrogX();
-          tryBoard(col, col);
+          tryBoard(col, col, frogCenter().x);
           return;
         }
         if (frogLane <= 2) {
           frogLane = 3;
           riding = false;
+          rideOffsetX = 0;
+          rideOffsetY = 0;
           finishMove();
           return;
         }
@@ -710,12 +774,14 @@
       }
       if (dir === "down") {
         if (frogLane > 2) {
-          tryBoard(1, 1);
+          tryBoard(1, 1, frogCenter().x);
           return;
         }
         if (frogLane >= 0 && frogLane <= 2) {
           frogLane = -1;
           riding = false;
+          rideOffsetX = 0;
+          rideOffsetY = 0;
           finishMove();
           return;
         }
@@ -727,27 +793,35 @@
     if (dir === "left") {
       frogX = Math.max(0.08, frogX - 0.08);
       riding = false;
+      rideOffsetX = 0;
+      rideOffsetY = 0;
     } else if (dir === "right") {
       frogX = Math.min(0.92, frogX + 0.08);
       riding = false;
+      rideOffsetX = 0;
+      rideOffsetY = 0;
     } else if (dir === "up") {
       const next = Math.min(3, frogLane + 1);
       const logIdx = logIndexForLane(next);
       if (logIdx >= 0) {
-        tryBoard(logIdx, next);
+        tryBoard(logIdx, next, frogCenter().x);
         return;
       }
       frogLane = next;
       riding = false;
+      rideOffsetX = 0;
+      rideOffsetY = 0;
     } else if (dir === "down") {
       const next = Math.max(-1, frogLane - 1);
       const logIdx = logIndexForLane(next);
       if (logIdx >= 0) {
-        tryBoard(logIdx, next);
+        tryBoard(logIdx, next, frogCenter().x);
         return;
       }
       frogLane = next;
       riding = false;
+      rideOffsetX = 0;
+      rideOffsetY = 0;
     }
 
     finishMove();
