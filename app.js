@@ -1649,7 +1649,7 @@
     if (els.roundCopy) {
       els.roundCopy.textContent = ended
         ? "Your run is on the board. Play another minute?"
-        : "Enter your name and tap Start for a 1-minute run.";
+        : "Enter your name to start.";
     }
     if (els.roundScore) els.roundScore.hidden = !ended;
     if (els.roundScoreValue) els.roundScoreValue.textContent = scoreMoney(lastFinalScore);
