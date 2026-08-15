@@ -425,7 +425,7 @@ body {
 .pad {
   position: fixed;
   right: max(0.7rem, env(safe-area-inset-right));
-  bottom: max(5.5rem, calc(env(safe-area-inset-bottom) + 5rem));
+  bottom: max(0.9rem, env(safe-area-inset-bottom));
   z-index: 20;
   display: grid;
   justify-items: center;
