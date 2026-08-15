@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=95" />
+    <link rel="stylesheet" href="styles.css?v=96" />
   </head>
   <body class="is-vertical">
     <button type="button" class="synth-toggle" id="synth-toggle" aria-pressed="false">
@@ -24,8 +24,8 @@
       <span class="market-label" id="market-label">Market</span>
     </div>
 
-    <button type="button" class="app-version" id="app-version" aria-label="Version 95. Tap to hard refresh">
-      v95
+    <button type="button" class="app-version" id="app-version" aria-label="Version 96. Tap to hard refresh">
+      v96
     </button>
 
     <header class="hud" aria-live="polite">
@@ -53,13 +53,14 @@
         role="progressbar"
         aria-label="Time left"
         aria-valuemin="0"
-        aria-valuemax="60"
-        aria-valuenow="60"
+        aria-valuemax="300"
+        aria-valuenow="300"
       >
         <div class="timer-track">
           <div class="timer-bar" id="timer-bar"></div>
         </div>
-        <span class="timer-label" id="timer-label">1:00</span>
+        <span class="timer-label" id="timer-label">5:00</span>
+        <button type="button" class="stop-round" id="stop-round" hidden>Stop</button>
       </div>
       <p class="hud-meta" id="hud-buys"></p>
     </header>
@@ -169,7 +170,7 @@
           </button>
         </div>
         <div class="round-body">
-          <p class="round-copy" id="round-copy">One minute on the river. Grow your $100,000.</p>
+          <p class="round-copy" id="round-copy">Five minutes. Make it count.</p>
           <div class="round-score" id="round-score" hidden>
             <span class="round-score-label">Final score</span>
             <span class="round-score-value" id="round-score-value">$100,000</span>
@@ -265,7 +266,7 @@
       </form>
     </div>
 
-    <script src="config.js?v=95"></script>
-    <script src="app.js?v=95"></script>
+    <script src="config.js?v=96"></script>
+    <script src="app.js?v=96"></script>
   </body>
 </html>

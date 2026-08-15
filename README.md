@@ -2,7 +2,7 @@
 
 Four stock logs on a river. SNAP, META, GOOG, and NVDA by default (editable in settings).
 
-- **1-minute rounds** with a countdown bar under the scoreboard
+- **5-minute rounds** with a countdown bar under the scoreboard (stop anytime to save)
 - Enter a **player name**; it persists locally and is saved with each score
 - Scores post to **Supabase** (`public.scores`) when `config.js` has your project URL + anon key
 - Jump onto a log to invest **$100,000**; jump ashore to cash out

@@ -2,7 +2,7 @@
   const STORAGE_KEY = "frogger-stocks-v2";
   const PLAYER_KEY = "frogger-player-name";
   const BUY_DOLLARS = 100_000;
-  const ROUND_MS = 60_000;
+  const ROUND_MS = 5 * 60_000;
   const LANE_COUNT = 4;
   const LAST_LOG_LANE = LANE_COUNT - 1;
   const TOP_BANK_LANE = LANE_COUNT;
@@ -54,6 +54,7 @@
     timer: document.getElementById("timer"),
     timerBar: document.getElementById("timer-bar"),
     timerLabel: document.getElementById("timer-label"),
+    stopRound: document.getElementById("stop-round"),
     roundScrim: document.getElementById("round-scrim"),
     roundPanel: document.getElementById("round-panel"),
     roundTitle: document.getElementById("round-title"),
@@ -1648,8 +1649,8 @@
     }
     if (els.roundCopy) {
       els.roundCopy.textContent = ended
-        ? "Your run is on the board. Play another minute?"
-        : "One minute. Make it count.";
+        ? "Your run is on the board. Play again?"
+        : "Five minutes. Make it count.";
     }
     if (els.roundScore) els.roundScore.hidden = !ended;
     if (els.roundScoreValue) els.roundScoreValue.textContent = scoreMoney(lastFinalScore);
@@ -1678,6 +1679,11 @@
     const showDemo = roundState === "demo" && !isRoundSheetOpen();
     if (els.demoOverlay) els.demoOverlay.hidden = !showDemo;
     document.body.classList.toggle("is-demo", roundState === "demo");
+    syncStopButton();
+  }
+
+  function syncStopButton() {
+    if (els.stopRound) els.stopRound.hidden = roundState !== "playing";
   }
 
   function hideRoundSheet() {
@@ -1729,19 +1735,26 @@
       // Closed market: keep logs moving so the timed round stays playable.
       startDemoMotion();
     }
-    showToast("Go — 1:00");
+    showToast("Go — 5:00");
+    syncStopButton();
   }
 
-  async function endRound() {
+  async function endRound(opts = {}) {
     if (roundState !== "playing") return;
+    const early = !!opts.early;
     roundState = "ended";
     stopRoundClock();
     updateTimerUi(0);
+    syncStopButton();
     if (holding) sellToCash();
     lastFinalScore = currentPortfolioValue();
     updateHud();
     scoreSavedThisRound = false;
     showRoundSheet("ended");
+    if (early && els.roundTitle) els.roundTitle.textContent = "Stopped";
+    if (early && els.roundCopy) {
+      els.roundCopy.textContent = "Score saved. Play again?";
+    }
     startDemoMotion();
 
     const name = readStoredPlayerName() || "Player";
@@ -1912,6 +1925,12 @@
     openRoundSheet();
   });
 
+  els.stopRound?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (roundState !== "playing") return;
+    endRound({ early: true });
+  });
+
   els.demoOverlay?.addEventListener("click", () => {
     openRoundSheet();
   });
@@ -1927,7 +1946,9 @@
   });
 
 
-  els.timer?.addEventListener("click", () => {
+  els.timer?.addEventListener("click", (e) => {
+    if (e.target && e.target.closest && e.target.closest("#stop-round")) return;
+    if (roundState === "playing") return;
     openRoundSheet();
   });
 
