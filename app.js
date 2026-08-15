@@ -74,8 +74,10 @@
   let holding = null;
   /** Liquid cash after selling back to shore; spent when boarding a log */
   let cash = BUY_DOLLARS;
-  /** Tap the frog to cycle 1× → 2× → 3× → 4× → 5× → 1× */
+  /** Left/right arrows cycle 1× → 5× seats on a log */
   let leverage = 1;
+  /** "long" | "short" — tap frog to flip; arrows still set leverage */
+  let side = "long";
 
   const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -692,23 +694,39 @@
     return sign + dollars + " (" + sign + percent + ")";
   }
 
+  function sideSign() {
+    return side === "short" ? -1 : 1;
+  }
+
+  function sideLabel() {
+    return side === "short" ? "Short" : "Long";
+  }
+
   function holdingValue() {
     if (!holding) return null;
     const q = quoteForSymbol(holding.symbol);
     const px = q && Number.isFinite(q.last) && q.last > 0 ? q.last : null;
     if (px == null || !Number.isFinite(holding.entry) || holding.entry <= 0) return null;
-    // Margin stays invested; P&L is amplified by leverage
-    const equity = holding.invested * (1 + leverage * (px / holding.entry - 1));
+    // Long gains when price rises; short gains when price falls (both × leverage)
+    const equity =
+      holding.invested * (1 + sideSign() * leverage * (px / holding.entry - 1));
     return Math.max(0, equity);
   }
 
-  function updateLeverageUi() {
+  function updateFrogUi() {
     els.frog.dataset.lev = String(leverage);
+    els.frog.dataset.side = side;
+    els.frog.classList.toggle("is-short", side === "short");
     els.frog.setAttribute(
       "aria-label",
-      "Leverage " + leverage + "x. Tap or use left and right to change"
+      sideLabel() +
+        " " +
+        leverage +
+        "x. Tap to flip long or short. Left and right change leverage"
     );
-    if (els.frogLev) els.frogLev.textContent = leverage + "×";
+    if (els.frogLev) {
+      els.frogLev.textContent = leverage + "× " + (side === "short" ? "S" : "L");
+    }
   }
 
   function setLeverage(next, opts) {
@@ -718,7 +736,7 @@
     if (holding && Number.isFinite(holding.entry) && holding.entry > 0) {
       holding.shares = (holding.invested * leverage) / holding.entry;
     }
-    updateLeverageUi();
+    updateFrogUi();
     if (riding && changed) {
       leverageSlideUntil = performance.now() + 220;
       leverageSlideArmed = true;
@@ -731,9 +749,22 @@
     return changed;
   }
 
-  function cycleLeverage() {
+  /** Tap frog: flip long ↔ short. Locks in MTM as new basis if already invested. */
+  function toggleSide() {
     if (!els.scrim.hidden) return;
-    setLeverage(leverage >= 5 ? 1 : leverage + 1);
+    if (holding) {
+      const value = holdingValue();
+      const q = quoteForSymbol(holding.symbol);
+      if (value != null && value > 0 && q && Number.isFinite(q.last) && q.last > 0) {
+        holding.invested = value;
+        holding.entry = q.last;
+        holding.shares = (holding.invested * leverage) / holding.entry;
+      }
+    }
+    side = side === "short" ? "long" : "short";
+    updateFrogUi();
+    updateHud();
+    showToast(sideLabel());
   }
 
   /** Left/right on a log: step leverage 1←→5. Returns false if already at that edge. */
@@ -746,9 +777,11 @@
   }
 
   function updateHud() {
+    const sideTag = side === "short" ? "Short" : "Long";
     if (!holding) {
       els.hudCash.textContent = "Cash " + money(cash) + "  " + pnlText(cash);
-      els.hudBuys.textContent = leverage + "× · Jump a log to invest";
+      els.hudBuys.textContent =
+        sideTag + " " + leverage + "× · Jump a log to invest";
       return;
     }
     const value = holdingValue();
@@ -756,13 +789,15 @@
     const px = q?.last;
     if (value == null || px == null) {
       els.hudCash.textContent = holding.symbol + " —";
-      els.hudBuys.textContent = leverage + "×";
+      els.hudBuys.textContent = sideTag + " " + leverage + "×";
       return;
     }
     els.hudCash.textContent = money(value) + "  " + pnlText(value);
     els.hudBuys.textContent =
       holding.symbol +
       " · " +
+      sideTag +
+      " " +
       leverage +
       "× · " +
       holding.shares.toFixed(holding.shares >= 10 ? 2 : 3) +
@@ -770,14 +805,15 @@
       slimPrice(px);
   }
 
-  /** Sell the open position into cash (shore). Stops tracking stock moves. */
+  /** Sell / cover the open position into cash (shore). */
   function sellToCash() {
     if (!holding) return;
     const value = holdingValue();
     const from = holding.symbol;
+    const verb = side === "short" ? "Covered" : "Sold";
     if (value != null && value > 0) {
       cash = value;
-      showToast("Sold " + from + " → " + money(cash) + " cash");
+      showToast(verb + " " + from + " → " + money(cash) + " cash");
     } else {
       cash = 0;
       showToast("Closed " + from + " — wiped out");
@@ -786,7 +822,7 @@
     updateHud();
   }
 
-  /** First log: invest cash. Switching logs: sell MTM value, buy the next stock. */
+  /** First log: invest cash (long or short). Switching logs: roll MTM into next. */
   function landOnLog(index) {
     const q = quotes[index];
     if (!q || !Number.isFinite(q.last) || q.last <= 0) return;
@@ -803,11 +839,12 @@
       cash = 0;
       updateHud();
       showToast(
-        "Invested " +
+        sideLabel() +
+          " " +
           money(spend) +
           " @ " +
           leverage +
-          "× in " +
+          "× " +
           q.symbol +
           " @ " +
           slimPrice(q.last)
@@ -837,11 +874,13 @@
     };
     updateHud();
     showToast(
-      "Sold " +
+      (side === "short" ? "Covered " : "Sold ") +
         from +
         " (" +
         money(soldValue) +
         ") → " +
+        sideLabel() +
+        " " +
         leverage +
         "× " +
         q.symbol +
@@ -1281,7 +1320,7 @@
   quotes = saved.symbols.map((s) => seedQuote(s));
 
   frogX = 0.5;
-  updateLeverageUi();
+  updateFrogUi();
   placeFrog();
   updateHud();
   updateMarketBadge();
@@ -1290,7 +1329,7 @@
 
   els.frog.addEventListener("click", (e) => {
     e.stopPropagation();
-    cycleLeverage();
+    toggleSide();
   });
 
   els.synthToggle.addEventListener("click", () => {

@@ -654,6 +654,22 @@ body.is-vertical .log.is-down .log-wood {
   touch-action: manipulation;
 }
 
+.frog.is-short {
+  background-image:
+    radial-gradient(circle at 32% 34%, #111 0 2px, transparent 3px),
+    radial-gradient(circle at 68% 34%, #111 0 2px, transparent 3px),
+    radial-gradient(circle at 32% 32%, #ffe8e8 0 5px, transparent 6px),
+    radial-gradient(circle at 68% 32%, #ffe8e8 0 5px, transparent 6px),
+    radial-gradient(ellipse at 50% 58%, #c62828 0 46%, transparent 47%),
+    radial-gradient(ellipse at 50% 42%, #ef5350 0 48%, transparent 49%);
+}
+
+.frog.is-short .frog-lev {
+  color: #fff0f0;
+  background: rgba(60, 12, 12, 0.88);
+  border-color: rgba(255, 140, 140, 0.55);
+}
+
 .frog[data-lev="2"] {
   --frog-size: 48px;
 }
