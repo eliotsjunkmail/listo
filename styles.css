@@ -60,13 +60,14 @@ body {
 
 .synth-pace {
   position: fixed;
-  top: max(3.05rem, calc(env(safe-area-inset-top) + 2.55rem));
   left: max(0.75rem, env(safe-area-inset-left));
+  bottom: max(0.9rem, env(safe-area-inset-bottom));
+  top: auto;
   z-index: 20;
-  width: min(11.5rem, calc(100vw - 8rem));
+  width: min(10.5rem, calc(100vw - 7.5rem));
   padding: 0.45rem 0.65rem 0.55rem;
   border-radius: 14px;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(8px);
   pointer-events: auto;
 }
