@@ -489,7 +489,8 @@
     const frog = els.frog.offsetHeight || 44;
 
     if (lane < 0) {
-      return worldH - frog - Math.max(18, worldH * 0.09 - 10);
+      // Start on the bottom bank at the water's edge
+      return riverTop + riverH + 4;
     }
     if (lane > 2) {
       return Math.max(12, worldH * 0.09 - frog / 2);
@@ -1067,6 +1068,8 @@
       };
       persist(next);
       holding = null;
+      reachedGoal = false;
+      if (els.goal) els.goal.classList.remove("is-hit");
       updateHud();
       quotes = next.symbols.map((s) => seedQuote(s));
       applyLogTransition(synthParams(next.pace).interval);
