@@ -1,6 +1,6 @@
 (() => {
   const STORAGE_KEY = "frogger-stocks-v2";
-  const BUY_DOLLARS = 1000;
+  const BUY_DOLLARS = 100_000;
   const DEFAULTS = {
     symbols: ["SNAP", "META", "GOOG"],
     synthetic: true,
@@ -644,14 +644,20 @@
 
   function pnlText(value) {
     const pnl = value - BUY_DOLLARS;
-    return (
-      (pnl >= 0 ? "+" : "−") +
+    const pct = (pnl / BUY_DOLLARS) * 100;
+    const sign = pnl >= 0 ? "+" : "−";
+    const dollars =
       "$" +
       Math.abs(pnl).toLocaleString("en-US", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
-      })
-    );
+      });
+    const percent =
+      Math.abs(pct).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + "%";
+    return sign + dollars + " (" + sign + percent + ")";
   }
 
   function holdingValue() {
