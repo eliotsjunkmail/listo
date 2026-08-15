@@ -1787,7 +1787,8 @@ body.is-demo .app-version {
   min-width: 0;
   max-width: 100%;
   padding: 0.5rem 0.2rem !important;
-  font-size: 0.82rem !important;
+  /* 16px minimum prevents iOS Safari focus zoom */
+  font-size: 16px !important;
   text-align: center;
 }
 
@@ -1872,7 +1873,8 @@ body.is-demo .app-version {
   background: #1a1a1a;
   color: var(--foam);
   font-family: inherit;
-  font-size: 1.05rem;
+  /* 16px minimum prevents iOS Safari focus zoom */
+  font-size: 16px;
   outline: none;
 }
 
