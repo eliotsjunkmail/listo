@@ -1516,14 +1516,18 @@
   async function supabaseFetch(path, options = {}) {
     const cfg = supabaseConfig();
     if (!cfg) throw new Error("Supabase is not configured");
+    const headers = {
+      apikey: cfg.key,
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    };
+    // Legacy anon JWTs need Bearer; new sb_publishable_ keys must use apikey only.
+    if (cfg.key.startsWith("eyJ")) {
+      headers.Authorization = "Bearer " + cfg.key;
+    }
     const res = await fetch(cfg.url + path, {
       ...options,
-      headers: {
-        apikey: cfg.key,
-        Authorization: "Bearer " + cfg.key,
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-      },
+      headers,
     });
     if (!res.ok) {
       const body = await res.text();
