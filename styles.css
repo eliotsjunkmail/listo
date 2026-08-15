@@ -1166,16 +1166,6 @@ body.is-vertical .log.is-down .log-wood {
   width: 100%;
 }
 
-.done-save {
-  background: transparent;
-  color: var(--foam);
-  border: 1px solid rgba(120, 220, 150, 0.45);
-}
-
-.done-save:active {
-  background: rgba(62, 207, 106, 0.18);
-}
-
 @keyframes modal-in {
   from {
     opacity: 0;
