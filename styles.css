@@ -859,28 +859,6 @@ body.is-vertical .log.is-down .log-wood {
   background: rgba(62, 207, 106, 0.35);
 }
 
-.gear {
-  position: fixed;
-  bottom: max(8.6rem, calc(env(safe-area-inset-bottom) + 8.2rem));
-  right: max(0.7rem, env(safe-area-inset-right));
-  z-index: 20;
-  width: 64px;
-  height: 64px;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(246, 246, 242, 0.92);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  pointer-events: auto;
-}
-
-.gear:active {
-  transform: scale(0.96);
-}
-
 .scrim {
   position: fixed;
   inset: 0;
