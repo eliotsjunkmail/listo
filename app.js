@@ -64,6 +64,7 @@
   let busy = false;
   let toastTimer = 0;
   let synthTimer = 0;
+  let rideRaf = 0;
 
   /** @type {{symbol:string, shares:number, invested:number}|null} */
   let holding = null;
@@ -555,16 +556,37 @@
       const logCy = logBox.top + logBox.height / 2 - worldBox.top;
       const fx = logCx + rideOffsetX;
       const fy = logCy + rideOffsetY - size / 2;
+      frog.classList.add("is-riding");
+      frog.style.transition = "none";
       frog.style.left = fx + "px";
       frog.style.top = fy + "px";
       frogX = fx / worldW;
+      startRideLoop();
     } else {
+      frog.classList.remove("is-riding");
+      stopRideLoop();
       const x = Math.min(worldW - size / 2 - 8, Math.max(size / 2 + 8, frogX * worldW));
       frog.style.left = x + "px";
       frog.style.top = laneY(frogLane) + "px";
+      restoreFrogTransition();
     }
+  }
 
-    restoreFrogTransition();
+  function syncFrogRideFrame() {
+    rideRaf = 0;
+    if (!riding) return;
+    placeFrog();
+  }
+
+  function startRideLoop() {
+    if (rideRaf) return;
+    rideRaf = requestAnimationFrame(syncFrogRideFrame);
+  }
+
+  function stopRideLoop() {
+    if (!rideRaf) return;
+    cancelAnimationFrame(rideRaf);
+    rideRaf = 0;
   }
 
   function frogCenter() {
@@ -800,8 +822,11 @@
 
     positionFrogAt(landCenterX, landYTop);
     landOnLog(logIdx);
-    restoreFrogTransition();
-    finishMove();
+    placeFrog();
+    window.setTimeout(() => {
+      els.frog.classList.remove("is-jumping");
+      busy = false;
+    }, 220);
   }
 
   function move(dir) {
@@ -1191,11 +1216,6 @@
   window.addEventListener("resize", () => {
     layoutLogs();
   });
-
-  // ride with log each frame when attached
-  window.setInterval(() => {
-    if (riding) placeFrog();
-  }, 100);
 
   if (saved.synthetic) {
     setSynthetic(true);

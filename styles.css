@@ -644,6 +644,10 @@ body.is-vertical .log-chg {
   pointer-events: none;
 }
 
+.frog.is-riding {
+  transition: none !important;
+}
+
 .frog.is-jumping {
   animation: hop 0.22s ease;
 }
