@@ -482,38 +482,40 @@
 
     if (vertical) {
       const laneH = lane.clientHeight || 300;
+      const laneW = lane.clientWidth || els.world.clientWidth / 3;
       const center = laneH / 2;
       const scale = pxPerDollar(q.open, laneH);
       const resY = center - (q.resistance - q.open) * scale;
       const supY = center - (q.support - q.open) * scale;
-      resEl.style.top = resY + "px";
-      resEl.style.left = "0";
-      resEl.style.right = "0";
-      resEl.style.bottom = "auto";
-      supEl.style.top = supY + "px";
-      supEl.style.left = "0";
-      supEl.style.right = "0";
-      supEl.style.bottom = "auto";
+      const halfW = laneW * 0.5;
+      const left = (laneW - halfW) / 2;
+      [resEl, supEl].forEach((el, idx) => {
+        el.style.top = (idx === 0 ? resY : supY) + "px";
+        el.style.left = left + "px";
+        el.style.width = halfW + "px";
+        el.style.right = "auto";
+        el.style.bottom = "auto";
+        el.style.height = "";
+      });
     } else {
       const worldW = els.world.clientWidth || window.innerWidth;
+      const laneH = lane.clientHeight || 88;
       const center = worldW / 2;
       const scale = pxPerDollar(q.open, worldW);
       const resX = center + (q.resistance - q.open) * scale;
       const supX = center + (q.support - q.open) * scale;
-      resEl.style.left = resX + "px";
-      resEl.style.top = "0";
-      resEl.style.bottom = "0";
-      resEl.style.right = "auto";
-      supEl.style.left = supX + "px";
-      supEl.style.top = "0";
-      supEl.style.bottom = "0";
-      supEl.style.right = "auto";
+      const halfH = laneH * 0.5;
+      const top = (laneH - halfH) / 2;
+      [resEl, supEl].forEach((el, idx) => {
+        el.style.left = (idx === 0 ? resX : supX) + "px";
+        el.style.top = top + "px";
+        el.style.height = halfH + "px";
+        el.style.bottom = "auto";
+        el.style.right = "auto";
+        el.style.width = "";
+      });
     }
 
-    const resLabel = resEl.querySelector(".level-label");
-    const supLabel = supEl.querySelector(".level-label");
-    if (resLabel) resLabel.textContent = "Resistance";
-    if (supLabel) supLabel.textContent = "Support";
     resEl.dataset.price = slimPrice(q.resistance);
     supEl.dataset.price = slimPrice(q.support);
     resEl.setAttribute("aria-label", "Resistance " + slimPrice(q.resistance));
@@ -523,16 +525,13 @@
   function showLevelTip(el) {
     if (!el || el.hidden) return;
     const tip = el.querySelector(".level-tip");
-    const label = el.querySelector(".level-label");
     const price = el.dataset.price;
     if (!tip || !price) return;
     tip.textContent = price;
     tip.hidden = false;
-    if (label) label.hidden = true;
     window.clearTimeout(levelTipTimer);
     levelTipTimer = window.setTimeout(() => {
       tip.hidden = true;
-      if (label) label.hidden = false;
     }, 1800);
   }
 
