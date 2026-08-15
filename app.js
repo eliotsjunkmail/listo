@@ -1644,12 +1644,12 @@
     }
     if (els.roundCopy) {
       els.roundCopy.textContent = ended
-        ? "Enter your name to save this score, or play again."
-        : "Watch the river, then tap Start for a 1-minute run.";
+        ? "Save your score, or play another minute."
+        : "Enter your name and tap Start for a 1-minute run.";
     }
     if (els.roundScore) els.roundScore.hidden = !ended;
     if (els.roundScoreValue) els.roundScoreValue.textContent = scoreMoney(lastFinalScore);
-    if (els.playerNameField) els.playerNameField.hidden = !ended;
+    if (els.playerNameField) els.playerNameField.hidden = false;
     if (els.roundSave) {
       els.roundSave.hidden = !ended;
       els.roundSave.textContent = "Save score";
@@ -1662,12 +1662,16 @@
     if (!ended && els.leaderboard) els.leaderboard.hidden = true;
     if (els.playerName) {
       els.playerName.value = readStoredPlayerName();
-      if (ended) els.playerName.focus();
+      els.playerName.focus();
     }
   }
 
   function hideRoundSheet() {
     if (els.roundScrim) els.roundScrim.hidden = true;
+  }
+
+  function isRoundSheetOpen() {
+    return !!(els.roundScrim && !els.roundScrim.hidden);
   }
 
   function openRoundSheet() {
@@ -1676,6 +1680,16 @@
   }
 
   function startRound() {
+    const name = persistPlayerName(els.playerName?.value || readStoredPlayerName());
+    if (!name) {
+      if (!isRoundSheetOpen()) showRoundSheet("demo");
+      if (els.roundStatus) {
+        els.roundStatus.hidden = false;
+        els.roundStatus.textContent = "Enter your name to start.";
+      }
+      els.playerName?.focus();
+      return;
+    }
     hideRoundSheet();
     restoreMotionAfterDemo();
     resetRoundPosition();
@@ -1888,6 +1902,25 @@
   els.timer?.addEventListener("click", () => {
     openRoundSheet();
   });
+
+  // Demo mode: any tap/click brings back the Start sheet.
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (roundState !== "demo") return;
+      if (isRoundSheetOpen()) return;
+      if (els.scrim && !els.scrim.hidden) return;
+      const t = e.target;
+      if (
+        t instanceof Element &&
+        t.closest("#app-version, #gear, #synth-toggle, #scrim, #panel")
+      ) {
+        return;
+      }
+      openRoundSheet();
+    },
+    true
+  );
 
   els.gear.addEventListener("click", openSettings);
   els.version?.addEventListener("click", () => {
