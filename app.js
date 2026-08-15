@@ -48,6 +48,10 @@
 
   /** @type {{symbol:string, open:number, last:number, bid:number, ask:number, change:number, support?:number, resistance?:number, velocity?:number}[]} */
   let quotes = DEFAULTS.symbols.map((symbol) => seedQuote(symbol));
+  /** Previous last prices — used to infer trail direction when velocity is missing */
+  let prevLast = [null, null, null];
+  /** Sticky trail direction per lane so brief flat ticks don't flicker the wake off */
+  let trailDir = [0, 0, 0];
 
   /** frogLane: -1 bottom bank, 0 nearest river log, 1 mid, 2 far, 3 top bank.
    *  DOM logs are top→bottom as indices 0,1,2 so nearest is log index 2. */
@@ -336,6 +340,37 @@
     return loadSettings().orientation !== "horizontal";
   }
 
+  function updateLogTrail(i, q, vertical) {
+    const el = els.logs[i]?.el;
+    if (!el || !q) return;
+
+    let dir = 0;
+    if (Number.isFinite(q.velocity) && Math.abs(q.velocity) > 1e-9) {
+      dir = Math.sign(q.velocity);
+    } else if (prevLast[i] != null && Number.isFinite(q.last)) {
+      const delta = q.last - prevLast[i];
+      if (Math.abs(delta) > 1e-9) dir = Math.sign(delta);
+    }
+    if (dir !== 0) trailDir[i] = dir;
+    if (Number.isFinite(q.last)) prevLast[i] = q.last;
+
+    el.classList.remove("trail-left", "trail-right", "trail-top", "trail-bottom");
+    const d = trailDir[i];
+    if (!d) return;
+
+    // Price up → right (horizontal) or toward top (vertical). Wake sits behind motion.
+    if (vertical) {
+      el.classList.add(d > 0 ? "trail-bottom" : "trail-top");
+    } else {
+      el.classList.add(d > 0 ? "trail-left" : "trail-right");
+    }
+
+    const speed = Number.isFinite(q.velocity) ? Math.abs(q.velocity) : 0;
+    const open = Math.max(q.open || 1, 0.5);
+    const t = Math.min(1, speed / Math.max(open * 0.00025, 0.004));
+    el.style.setProperty("--trail-len", Math.round(40 + t * 48) + "px");
+  }
+
   function applyOrientationClass() {
     const vertical = isVertical();
     document.body.classList.toggle("is-vertical", vertical);
@@ -405,6 +440,7 @@
       log.chg.textContent = slimChange(q.change);
       log.el.classList.toggle("is-up", q.change > 0.004);
       log.el.classList.toggle("is-down", q.change < -0.004);
+      updateLogTrail(i, q, vertical);
 
       // Draw fixed S/R from price levels (they stay put until a breakout)
       layoutLevelLines(i, q, vertical, lane);

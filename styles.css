@@ -442,6 +442,99 @@ body.is-vertical .river::before {
   will-change: left, width, top, height;
 }
 
+.log-trail {
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  --trail-len: 56px;
+  background:
+    radial-gradient(ellipse at center, rgba(230, 250, 255, 0.55) 0%, rgba(180, 230, 245, 0.2) 45%, transparent 72%),
+    linear-gradient(var(--trail-fade, to left), rgba(255, 255, 255, 0.5), rgba(160, 220, 240, 0.18), transparent);
+  filter: blur(0.4px);
+}
+
+.log.trail-left .log-trail,
+.log.trail-right .log-trail,
+.log.trail-top .log-trail,
+.log.trail-bottom .log-trail {
+  opacity: 1;
+}
+
+/* Moving right → wake on the left */
+body.is-horizontal .log.trail-left .log-trail {
+  --trail-fade: to left;
+  right: calc(100% - 6px);
+  left: auto;
+  top: 50%;
+  width: var(--trail-len);
+  height: 58%;
+  transform: translateY(-50%);
+  border-radius: 60% 8% 8% 60%;
+  animation: trail-drift-x 0.9s ease-in-out infinite alternate;
+}
+
+/* Moving left → wake on the right */
+body.is-horizontal .log.trail-right .log-trail {
+  --trail-fade: to right;
+  left: calc(100% - 6px);
+  right: auto;
+  top: 50%;
+  width: var(--trail-len);
+  height: 58%;
+  transform: translateY(-50%);
+  border-radius: 8% 60% 60% 8%;
+  animation: trail-drift-x 0.9s ease-in-out infinite alternate-reverse;
+}
+
+/* Moving up → wake below */
+body.is-vertical .log.trail-bottom .log-trail {
+  --trail-fade: to bottom;
+  left: 50%;
+  top: calc(100% - 6px);
+  width: 58%;
+  height: var(--trail-len);
+  transform: translateX(-50%);
+  border-radius: 8% 8% 60% 60%;
+  animation: trail-drift-y 0.9s ease-in-out infinite alternate;
+}
+
+/* Moving down → wake above */
+body.is-vertical .log.trail-top .log-trail {
+  --trail-fade: to top;
+  left: 50%;
+  bottom: calc(100% - 6px);
+  top: auto;
+  width: 58%;
+  height: var(--trail-len);
+  transform: translateX(-50%);
+  border-radius: 60% 60% 8% 8%;
+  animation: trail-drift-y 0.9s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes trail-drift-x {
+  from {
+    opacity: 0.55;
+    transform: translateY(-50%) scaleX(0.85);
+  }
+  to {
+    opacity: 0.95;
+    transform: translateY(-50%) scaleX(1.12);
+  }
+}
+
+@keyframes trail-drift-y {
+  from {
+    opacity: 0.55;
+    transform: translateX(-50%) scaleY(0.85);
+  }
+  to {
+    opacity: 0.95;
+    transform: translateX(-50%) scaleY(1.12);
+  }
+}
+
 body.is-vertical .log {
   min-width: 0;
   width: 72%;
@@ -453,6 +546,8 @@ body.is-horizontal .log {
 }
 
 .log-wood {
+  position: relative;
+  z-index: 1;
   height: 100%;
   border-radius: 999px;
   display: grid;
@@ -696,6 +791,10 @@ body.is-vertical .log-chg {
 @media (prefers-reduced-motion: reduce) {
   .log {
     transition: none;
+  }
+
+  .log-trail {
+    animation: none !important;
   }
 
   .river::before,
