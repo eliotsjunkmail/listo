@@ -592,11 +592,11 @@ body.is-vertical .log-chg {
   height: var(--frog-size);
   z-index: 3;
   left: 50%;
+  top: auto;
   bottom: calc(9vh - 8px);
   transform: translateX(-50%);
   transition:
     left 0.18s ease,
-    bottom 0.22s cubic-bezier(0.2, 1.4, 0.4, 1),
     top 0.22s cubic-bezier(0.2, 1.4, 0.4, 1);
   background:
     radial-gradient(circle at 32% 34%, #111 0 2px, transparent 3px),

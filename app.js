@@ -511,6 +511,8 @@
     const size = frog.offsetWidth || 44;
     const logIdx = logIndexForLane(frogLane);
 
+    frog.style.bottom = "auto";
+
     if (riding && logIdx >= 0) {
       const logBox = els.logs[logIdx].el.getBoundingClientRect();
       const logCx = logBox.left + logBox.width / 2 - worldBox.left;
@@ -526,7 +528,7 @@
       frog.style.top = laneY(frogLane) + "px";
     }
 
-    frog.style.bottom = "auto";
+    restoreFrogTransition();
     checkGoal();
   }
 
@@ -577,10 +579,17 @@
     const worldW = els.world.clientWidth;
     const size = els.frog.offsetWidth || 44;
     const x = Math.min(worldW - size / 2 - 8, Math.max(size / 2 + 8, landX));
+    // Clear CSS bottom anchor and skip transition so layout matches instantly
+    els.frog.style.transition = "none";
+    els.frog.style.bottom = "auto";
     els.frog.style.left = x + "px";
     els.frog.style.top = landYTop + "px";
-    els.frog.style.bottom = "auto";
+    void els.frog.offsetWidth;
     frogX = x / worldW;
+  }
+
+  function restoreFrogTransition() {
+    els.frog.style.transition = "";
   }
 
   function showToast(msg) {
@@ -709,7 +718,6 @@
   /**
    * Jump toward a log at the frog's approach aim.
    * Lands on the nearest point on that log (not forced to center).
-   * If the aim misses completely, stay put — never splash.
    */
   function tryBoard(logIdx, nextLane, landX) {
     const worldBox = els.world.getBoundingClientRect();
@@ -730,27 +738,21 @@
     const logCx = (logLeft + logRight) / 2;
     const logCy = (logTop + logBot) / 2;
 
-    // Inset so the frog body sits fully on the log
     const insetX = Math.min(size * 0.35, Math.max(8, (logRight - logLeft) * 0.2));
     const minX = logLeft + insetX;
     const maxX = logRight - insetX;
     const minY = logTop + 4;
     const maxY = Math.max(minY, logBot - size * 0.5);
 
-    if (maxX < minX) {
-      // Log too narrow — abort quietly
+    if (maxX < minX || logBot - logTop < size * 0.4) {
+      restoreFrogTransition();
       finishMove();
       return;
     }
 
-    // Sideways jumps must be aimed near the log; upward from the bank
-    // always clamps onto the lane's log at the nearest landing point.
     const fromBank = prevLane < 0;
     const reach = Math.max(logRight - logLeft, size) * 0.65;
-    if (
-      !fromBank &&
-      (aimX < logLeft - reach || aimX > logRight + reach)
-    ) {
+    if (!fromBank && (aimX < logLeft - reach || aimX > logRight + reach)) {
       frogLane = prevLane;
       riding = prevRiding;
       rideOffsetX = prevOffX;
@@ -760,39 +762,19 @@
       return;
     }
 
-    // Nearest point on the log to the aim — not the center unless that's closest
     const landCenterX = Math.min(maxX, Math.max(minX, aimX));
-    let preferY;
-    if (isVertical()) {
-      preferY = logBot - size - 4;
-    } else {
-      preferY = laneY(nextLane);
-    }
+    const preferY = isVertical() ? logBot - size - 4 : laneY(nextLane);
     const landYTop = Math.min(maxY, Math.max(minY, preferY));
+    const landCenterY = landYTop + size / 2;
 
     frogLane = nextLane;
-    riding = false;
-    positionFrogAt(landCenterX, landYTop);
-
-    // Soft accept: if still no overlap (layout quirk), nudge to log center Y / clamped X
-    if (!frogOverlapsLog(logIdx)) {
-      positionFrogAt(landCenterX, (logTop + logBot) / 2 - size / 2);
-    }
-    if (!frogOverlapsLog(logIdx)) {
-      frogLane = prevLane;
-      riding = prevRiding;
-      rideOffsetX = prevOffX;
-      rideOffsetY = prevOffY;
-      frogX = prevFrogX;
-      finishMove();
-      return;
-    }
-
-    const landed = frogCenter();
-    rideOffsetX = landed.x - logCx;
-    rideOffsetY = landed.y - logCy;
+    rideOffsetX = landCenterX - logCx;
+    rideOffsetY = landCenterY - logCy;
     riding = true;
+
+    positionFrogAt(landCenterX, landYTop);
     landOnLog(logIdx);
+    restoreFrogTransition();
     finishMove();
   }
 
