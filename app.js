@@ -1574,6 +1574,15 @@
     return Array.isArray(rows) ? rows : [];
   }
 
+  function centerHighlightedLeaderboardRow() {
+    const list = els.leaderboardList;
+    if (!list) return;
+    const mine = list.querySelector("li.is-mine");
+    if (!mine) return;
+    const top = mine.offsetTop - (list.clientHeight - mine.offsetHeight) / 2;
+    list.scrollTop = Math.max(0, top);
+  }
+
   function renderLeaderboard(rows, highlightId) {
     if (!els.leaderboard || !els.leaderboardList) return;
     els.leaderboardList.innerHTML = "";
@@ -1597,8 +1606,12 @@
       els.leaderboardList.appendChild(li);
     });
     els.leaderboard.hidden = false;
-    const mine = els.leaderboardList.querySelector("li.is-mine");
-    if (mine) mine.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    // Wait for layout so the list has a real clientHeight before centering.
+    // Panel open animation can still be settling; re-center once more after it.
+    requestAnimationFrame(() => {
+      centerHighlightedLeaderboardRow();
+      window.setTimeout(centerHighlightedLeaderboardRow, 220);
+    });
   }
 
   function resetRoundPosition() {

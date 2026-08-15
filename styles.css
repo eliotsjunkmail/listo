@@ -378,7 +378,15 @@ body {
   color: #f4ffe8;
 }
 
+.leaderboard {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .leaderboard h3 {
+  flex: 0 0 auto;
   margin: 0.15rem 0 0;
   font-size: 0.78rem;
   letter-spacing: 0.08em;
@@ -388,11 +396,20 @@ body {
 }
 
 .leaderboard ol {
+  flex: 1 1 auto;
+  min-height: 0;
   margin: 0.35rem 0 0;
   padding: 0;
   list-style: none;
   display: grid;
+  align-content: start;
   gap: 0.35rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 220, 150, 0.45) transparent;
 }
 
 .leaderboard li {
@@ -1265,11 +1282,15 @@ body.is-demo .app-version {
 .round-body {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
-  display: grid;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   gap: 0.85rem;
   padding-bottom: 0.25rem;
-  -webkit-overflow-scrolling: touch;
+}
+
+.round-body > *:not(.leaderboard) {
+  flex: 0 0 auto;
 }
 
 .round-footer {
