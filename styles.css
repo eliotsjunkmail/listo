@@ -1434,6 +1434,69 @@ body.is-vertical .log.is-down .log-wood {
   background: rgba(62, 207, 106, 0.2);
 }
 
+.ht-water-levels {
+  inset: 0.55rem 0.35rem 1.1rem;
+}
+
+.ht-level {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 0;
+  border-top: 2px dashed rgba(255, 255, 255, 0.7);
+  z-index: 1;
+}
+
+.ht-level span {
+  position: absolute;
+  top: -0.95rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ht-level-res {
+  top: 18%;
+  border-color: rgba(255, 120, 120, 0.85);
+}
+
+.ht-level-res span {
+  right: 0;
+  color: #ffb4b4;
+}
+
+.ht-level-sup {
+  bottom: 22%;
+  border-color: rgba(80, 220, 180, 0.85);
+}
+
+.ht-level-sup span {
+  left: 0;
+  color: #9ef0d0;
+}
+
+.ht-log-bounce {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: ht-bounce-sr 2.4s ease-in-out infinite;
+  z-index: 2;
+}
+
+@keyframes ht-bounce-sr {
+  0%,
+  100% {
+    top: 58%;
+  }
+  45% {
+    top: 28%;
+  }
+  55% {
+    top: 28%;
+  }
+}
+
 @keyframes ht-log-drift {
   from {
     transform: translateX(0);
@@ -1946,7 +2009,8 @@ body.is-demo .app-version {
   .ht-log-up,
   .ht-frog-hop,
   .ht-frog-slide,
-  .ht-frog-tap {
+  .ht-frog-tap,
+  .ht-log-bounce {
     animation: none !important;
   }
 }

@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=104" />
+    <link rel="stylesheet" href="styles.css?v=105" />
   </head>
   <body class="is-vertical">
     <div class="app-frame" id="app-frame">
@@ -25,8 +25,8 @@
       <span class="market-label" id="market-label">Market <span class="pill-value">closed</span></span>
     </div>
 
-    <button type="button" class="app-version" id="app-version" aria-label="Version 104. Tap to hard refresh">
-      v104
+    <button type="button" class="app-version" id="app-version" aria-label="Version 105. Tap to hard refresh">
+      v105
     </button>
 
     <header class="hud" aria-live="polite">
@@ -234,9 +234,34 @@
               you profit if the stock falls, and lose if it rises.
             </p>
           </div>
+          <div class="howto-step" data-step="3" hidden>
+            <div class="howto-visual" aria-hidden="true">
+              <div class="ht-scene ht-levels">
+                <div class="ht-water ht-water-levels">
+                  <div class="ht-level ht-level-res">
+                    <span>Resistance</span>
+                  </div>
+                  <div class="ht-level ht-level-sup">
+                    <span>Support</span>
+                  </div>
+                  <div class="ht-log ht-log-bounce">
+                    <span>META</span>
+                    <span>510</span>
+                  </div>
+                </div>
+                <div class="ht-hint">likely reverse</div>
+              </div>
+            </div>
+            <h3>Support &amp; resistance</h3>
+            <p>
+              Dashed lines mark support (floor) and resistance (ceiling). Price often
+              stalls or reverses there — in demo mode logs bounce off them until a
+              level breaks.
+            </p>
+          </div>
         </div>
         <div class="howto-dots" id="howto-dots" aria-hidden="true">
-          <span class="is-on"></span><span></span><span></span>
+          <span class="is-on"></span><span></span><span></span><span></span>
         </div>
         <div class="howto-footer">
           <button type="button" class="howto-secondary" id="howto-back" hidden>Back</button>
@@ -364,7 +389,7 @@
     </div>
     </div>
 
-    <script src="config.js?v=104"></script>
-    <script src="app.js?v=104"></script>
+    <script src="config.js?v=105"></script>
+    <script src="app.js?v=105"></script>
   </body>
 </html>

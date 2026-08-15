@@ -88,7 +88,7 @@
   };
 
   let howtoStep = 0;
-  const HOWTO_STEPS = 3;
+  const HOWTO_STEPS = 4;
 
   /** @type {{symbol:string, open:number, last:number, bid:number, ask:number, change:number, support?:number, resistance?:number, velocity?:number}[]} */
   let quotes = DEFAULTS.symbols.map((symbol) => seedQuote(symbol));
@@ -2271,6 +2271,6 @@
   setInterval(() => {
     updateMarketBadge();
     const cfg = loadSettings();
-    if (roundState === "playing" && !cfg.synthetic && isNyseOpen()) refresh(false);
-  }, 60_000);
+    if (!cfg.synthetic && isNyseOpen()) refresh(false);
+  }, 15_000);
 })();
