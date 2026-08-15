@@ -331,6 +331,14 @@ body {
   border: 1px solid rgba(120, 220, 150, 0.25);
 }
 
+.round-score[hidden],
+.leaderboard[hidden],
+#player-name-field[hidden],
+.round-status[hidden],
+#round-save[hidden] {
+  display: none !important;
+}
+
 .round-score-label {
   font-size: 0.7rem;
   letter-spacing: 0.08em;
