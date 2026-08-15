@@ -918,74 +918,117 @@
   function ensureAudio() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
-    if (!audioCtx) audioCtx = new AC();
-    if (audioCtx.state === "suspended") {
-      audioCtx.resume().catch(() => {});
+    if (!audioCtx) {
+      try {
+        audioCtx = new AC();
+      } catch {
+        return null;
+      }
     }
     return audioCtx;
   }
 
-  function tone(ctx, { type, freq, freqEnd, start, dur, peak, when = 0 }) {
-    const t0 = ctx.currentTime + when;
+  /** iOS Safari often stays suspended until resume settles inside a user gesture. */
+  function unlockAudio() {
+    const ctx = ensureAudio();
+    if (!ctx) return Promise.resolve(null);
+    try {
+      const buffer = ctx.createBuffer(1, 1, ctx.sampleRate || 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(ctx.destination);
+      src.start(0);
+    } catch {
+      /* ignore */
+    }
+    if (ctx.state === "suspended") {
+      return ctx.resume().then(() => ctx).catch(() => ctx);
+    }
+    return Promise.resolve(ctx);
+  }
+
+  function tone(ctx, { type, freq, freqEnd, dur, peak, when = 0 }) {
+    const t0 = ctx.currentTime + Math.max(0, when);
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = type;
     osc.frequency.setValueAtTime(freq, t0);
     if (freqEnd != null) {
-      osc.frequency.exponentialRampToValueAtTime(Math.max(freqEnd, 1), t0 + dur);
+      osc.frequency.linearRampToValueAtTime(Math.max(freqEnd, 1), t0 + dur);
     }
     gain.gain.setValueAtTime(0.0001, t0);
-    gain.gain.exponentialRampToValueAtTime(peak, t0 + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    gain.gain.linearRampToValueAtTime(peak, t0 + Math.min(0.02, dur * 0.2));
+    gain.gain.linearRampToValueAtTime(0.0001, t0 + dur);
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start(t0);
-    osc.stop(t0 + dur + 0.02);
+    osc.stop(t0 + dur + 0.03);
+  }
+
+  function emitFrogTones(ctx, kind) {
+    if (kind === "step") {
+      tone(ctx, {
+        type: "triangle",
+        freq: 260,
+        freqEnd: 380,
+        dur: 0.08,
+        peak: 0.28,
+      });
+      return;
+    }
+    tone(ctx, {
+      type: "sine",
+      freq: 200,
+      freqEnd: 120,
+      dur: 0.11,
+      peak: 0.32,
+    });
+    tone(ctx, {
+      type: "triangle",
+      freq: 440,
+      freqEnd: 780,
+      dur: 0.15,
+      peak: 0.4,
+      when: 0.015,
+    });
+    tone(ctx, {
+      type: "sine",
+      freq: 920,
+      freqEnd: 540,
+      dur: 0.1,
+      peak: 0.18,
+      when: 0.05,
+    });
   }
 
   /** Hop / step blips for frog movement (respects settings sound flag). */
   function playFrogSound(kind) {
     if (!loadSettings().sound) return;
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    // Start unlock work synchronously inside the tap gesture (critical on iOS).
     try {
-      const ctx = ensureAudio();
-      if (!ctx) return;
-      if (kind === "step") {
-        tone(ctx, {
-          type: "triangle",
-          freq: 240,
-          freqEnd: 360,
-          dur: 0.07,
-          peak: 0.11,
-        });
-        return;
-      }
-      // Jump: soft body + bright hop chirp
-      tone(ctx, {
-        type: "sine",
-        freq: 180,
-        freqEnd: 110,
-        dur: 0.12,
-        peak: 0.14,
-      });
-      tone(ctx, {
-        type: "triangle",
-        freq: 420,
-        freqEnd: 720,
-        dur: 0.16,
-        peak: 0.2,
-        when: 0.02,
-      });
-      tone(ctx, {
-        type: "sine",
-        freq: 880,
-        freqEnd: 520,
-        dur: 0.1,
-        peak: 0.08,
-        when: 0.06,
-      });
+      const buffer = ctx.createBuffer(1, 1, ctx.sampleRate || 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(ctx.destination);
+      src.start(0);
     } catch {
-      /* ignore autoplay / audio errors */
+      /* ignore */
     }
+    const play = () => {
+      if (!loadSettings().sound) return;
+      try {
+        emitFrogTones(ctx, kind);
+      } catch {
+        /* ignore */
+      }
+    };
+    if (ctx.state === "running") {
+      play();
+      return;
+    }
+    ctx.resume().then(play).catch(() => {});
   }
 
   function syncSoundUi(on) {
@@ -1799,7 +1842,7 @@
     hideRoundSheet();
     document.body.classList.remove("is-demo");
     if (els.demoOverlay) els.demoOverlay.hidden = true;
-    ensureAudio();
+    unlockAudio();
     restoreMotionAfterDemo();
     resetRoundPosition();
     updateTimerUi(ROUND_MS);
@@ -1982,8 +2025,7 @@
     cfg.sound = on;
     persist(cfg);
     if (on) {
-      ensureAudio();
-      playFrogSound("hop");
+      unlockAudio().then(() => playFrogSound("hop"));
     }
   });
 
@@ -2104,20 +2146,29 @@
     const dir = map[e.key];
     if (!dir) return;
     e.preventDefault();
-    ensureAudio();
+    unlockAudio();
     move(dir);
   });
 
   els.pad.addEventListener("pointerdown", () => {
-    ensureAudio();
+    unlockAudio();
   });
 
   els.pad.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-dir]");
     if (!btn) return;
-    ensureAudio();
+    unlockAudio();
     move(btn.getAttribute("data-dir"));
   });
+
+  // First tap anywhere unlocks Web Audio on iOS Safari.
+  window.addEventListener(
+    "pointerdown",
+    () => {
+      if (loadSettings().sound) unlockAudio();
+    },
+    { once: true, capture: true }
+  );
 
   window.addEventListener("resize", () => {
     layoutLogs();

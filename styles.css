@@ -1377,16 +1377,24 @@ body.is-demo .app-version {
 .stocks-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.45rem;
+  gap: 0.28rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .stocks-row label {
   min-width: 0;
+  gap: 0.25rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
 }
 
 .stocks-row input {
-  padding: 0.65rem 0.35rem !important;
-  font-size: 0.92rem !important;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.5rem 0.2rem !important;
+  font-size: 0.82rem !important;
   text-align: center;
 }
 
