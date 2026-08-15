@@ -761,7 +761,7 @@
         "x. Tap to flip long or short. Left and right change leverage"
     );
     if (els.frogLev) {
-      els.frogLev.textContent = leverage + "× " + (side === "short" ? "S" : "L");
+      els.frogLev.textContent = leverage + "×";
     }
   }
 
