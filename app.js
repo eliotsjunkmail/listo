@@ -942,6 +942,24 @@
 
   function move(dir) {
     if (busy || !els.scrim.hidden) return;
+
+    // On a log, left/right walk leverage seats (1× left … 5× right)
+    if (riding && (dir === "left" || dir === "right")) {
+      if (shiftLeverageOnLog(dir)) return;
+      // At seat edge in vertical mode: jump to the neighboring stock column
+      if (isVertical() && frogLane >= 0 && frogLane <= 2) {
+        const next = Math.min(2, Math.max(0, frogLane + (dir === "right" ? 1 : -1)));
+        if (next === frogLane) return;
+        busy = true;
+        els.frog.classList.add("is-jumping");
+        const colW = els.river.clientWidth / 3;
+        const landX = frogCenter().x + (dir === "right" ? colW : -colW);
+        tryBoard(next, next, landX);
+        return;
+      }
+      return;
+    }
+
     busy = true;
     els.frog.classList.add("is-jumping");
 
@@ -960,7 +978,6 @@
           finishMove();
           return;
         }
-        // Jump sideways; keep current Y, shift X toward the next column
         const colW = els.river.clientWidth / 3;
         const landX = frogCenter().x + (dir === "right" ? colW : -colW);
         tryBoard(next, next, landX);
