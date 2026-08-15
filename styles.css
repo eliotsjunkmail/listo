@@ -970,7 +970,7 @@ body.is-vertical .log.is-down .log-wood {
   z-index: 3;
   left: 50%;
   top: auto;
-  bottom: calc(13vh + 12px);
+  bottom: calc(13% + 12px);
   padding: 0;
   border: 0;
   margin: 0;
