@@ -403,7 +403,7 @@
       log.el.classList.toggle("is-up", q.change > 0.004);
       log.el.classList.toggle("is-down", q.change < -0.004);
 
-      // After the log is placed (incl. transforms), pin S/R outside it
+      // Draw fixed S/R from price levels (they stay put until a breakout)
       layoutLevelLines(i, q, vertical, lane);
     });
 
@@ -414,10 +414,14 @@
   function layoutLevelLines(i, q, vertical, lane) {
     const resEl = els.logs[i].res;
     const supEl = els.logs[i].sup;
-    const logEl = els.logs[i].el;
-    if (!resEl || !supEl || !logEl || !lane) return;
+    if (!resEl || !supEl || !lane) return;
     const synth = document.body.classList.contains("synth-on");
-    if (!synth || !Number.isFinite(q.open)) {
+    if (
+      !synth ||
+      !Number.isFinite(q.support) ||
+      !Number.isFinite(q.resistance) ||
+      !Number.isFinite(q.open)
+    ) {
       resEl.hidden = true;
       supEl.hidden = true;
       return;
@@ -425,34 +429,12 @@
     resEl.hidden = false;
     supEl.hidden = false;
 
-    const clearance = 28;
-    const laneBox = lane.getBoundingClientRect();
-    const logBox = logEl.getBoundingClientRect();
-    const laneH = lane.clientHeight || laneBox.height;
-    const laneW = lane.clientWidth || laneBox.width;
-    const centerY = laneH / 2;
-    const centerX = laneW / 2;
-    const scale = vertical
-      ? pxPerDollar(q.open, laneH)
-      : pxPerDollar(q.open, els.world.clientWidth || window.innerWidth);
-
     if (vertical) {
-      const logTop = logBox.top - laneBox.top;
-      const logBot = logBox.bottom - laneBox.top;
-      let resY = logTop - clearance;
-      let supY = logBot + clearance;
-      // If the channel is too tight for the lane, shrink toward edges but
-      // never let a line sit on top of the log body.
-      resY = Math.max(8, Math.min(resY, logTop - 12));
-      supY = Math.min(laneH - 8, Math.max(supY, logBot + 12));
-      if (supY - resY < 40) {
-        resY = Math.max(8, centerY - laneH * 0.38);
-        supY = Math.min(laneH - 8, centerY + laneH * 0.38);
-        // Still keep clear of the log if possible
-        if (resY > logTop - 12) resY = Math.max(8, logTop - 12);
-        if (supY < logBot + 12) supY = Math.min(laneH - 8, logBot + 12);
-      }
-
+      const laneH = lane.clientHeight || 300;
+      const center = laneH / 2;
+      const scale = pxPerDollar(q.open, laneH);
+      const resY = center - (q.resistance - q.open) * scale;
+      const supY = center - (q.support - q.open) * scale;
       resEl.style.top = resY + "px";
       resEl.style.left = "0";
       resEl.style.right = "0";
@@ -461,18 +443,12 @@
       supEl.style.left = "0";
       supEl.style.right = "0";
       supEl.style.bottom = "auto";
-
-      q.resistance = q.open + (centerY - resY) / scale;
-      q.support = q.open + (centerY - supY) / scale;
     } else {
-      const logLeft = logBox.left - laneBox.left;
-      const logRight = logBox.right - laneBox.left;
-      // Horizontal motion: higher price = further right. R to the right of log, S left.
-      let resX = logRight + clearance;
-      let supX = logLeft - clearance;
-      resX = Math.min(laneW - 8, Math.max(resX, logRight + 12));
-      supX = Math.max(8, Math.min(supX, logLeft - 12));
-
+      const worldW = els.world.clientWidth || window.innerWidth;
+      const center = worldW / 2;
+      const scale = pxPerDollar(q.open, worldW);
+      const resX = center + (q.resistance - q.open) * scale;
+      const supX = center + (q.support - q.open) * scale;
       resEl.style.left = resX + "px";
       resEl.style.top = "0";
       resEl.style.bottom = "0";
@@ -481,13 +457,6 @@
       supEl.style.top = "0";
       supEl.style.bottom = "0";
       supEl.style.right = "auto";
-
-      const worldCenter = (els.world.clientWidth || window.innerWidth) / 2;
-      const worldScale = pxPerDollar(q.open, els.world.clientWidth || window.innerWidth);
-      const laneLeftInWorld = laneBox.left - els.world.getBoundingClientRect().left;
-      q.resistance = q.open + (laneLeftInWorld + resX - worldCenter) / worldScale;
-      q.support = q.open + (laneLeftInWorld + supX - worldCenter) / worldScale;
-      void centerX;
     }
 
     resEl.querySelector("span").textContent = "R " + slimPrice(q.resistance);
@@ -787,14 +756,15 @@
   function tickSynthetic() {
     const pace = loadSettings().pace;
     const { stepScale, maxMove, meanRevert } = synthParams(pace);
-    // Higher pace → slightly more breakouts
     const breakChance = 0.08 + ((clampPace(pace) - 1) / 9) * 0.12;
 
     quotes = quotes.map((raw) => {
       let q = ensureLevels(raw);
-      const noise = (Math.random() - 0.5) * Math.max(q.open * 0.00008, 0.001) * stepScale;
-      const towardOpen = (q.open - q.last) * meanRevert * 0.35;
-      let velocity = q.velocity + towardOpen * 0.15 + noise;
+      const half = estimateLogHalfPrice(q);
+      const noise =
+        (Math.random() - 0.5) * Math.max(q.open * 0.00008, 0.001) * stepScale;
+      const towardOpen = (q.open - q.last) * meanRevert * 0.25;
+      let velocity = q.velocity + towardOpen * 0.12 + noise;
       const maxSpeed = Math.max(q.open * 0.00012, 0.002) * stepScale * 2.2;
       velocity = Math.max(-maxSpeed, Math.min(maxSpeed, velocity));
 
@@ -802,47 +772,44 @@
       let support = q.support;
       let resistance = q.resistance;
       let broke = null;
+      const eps = Math.max(q.open * 0.00004, 0.0008);
 
-      if (last >= resistance && velocity > 0) {
+      // Hit when the TOP of the log reaches resistance / BOTTOM reaches support
+      const logTop = last + half;
+      const logBot = last - half;
+
+      if (logTop >= resistance && velocity > 0) {
         if (Math.random() < breakChance) {
-          // Breakout: old resistance becomes new support; stretch a new ceiling
           support = resistance;
-          const extend = Math.max(q.open * 0.005, 0.03) * (0.8 + Math.random());
+          const extend = half + Math.max(q.open * 0.006, 0.04) * (0.9 + Math.random());
           resistance = last + extend;
           broke = "res";
         } else {
-          last = resistance - Math.max(q.open * 0.00005, 0.001);
+          // Rest the top of the log against resistance; reverse
+          last = resistance - half - eps;
           velocity = -Math.abs(velocity) * (0.65 + Math.random() * 0.45);
         }
-      } else if (last <= support && velocity < 0) {
+      } else if (logBot <= support && velocity < 0) {
         if (Math.random() < breakChance) {
           resistance = support;
-          const extend = Math.max(q.open * 0.005, 0.03) * (0.8 + Math.random());
+          const extend = half + Math.max(q.open * 0.006, 0.04) * (0.9 + Math.random());
           support = last - extend;
           broke = "sup";
         } else {
-          last = support + Math.max(q.open * 0.00005, 0.001);
+          last = support + half + eps;
           velocity = Math.abs(velocity) * (0.65 + Math.random() * 0.45);
         }
       }
 
-      // Keep a usable channel width (room for log + clearance)
-      if (resistance - support < q.open * 0.016) {
-        const mid = (support + resistance) / 2;
-        const half = Math.max(q.open * 0.01, 0.08);
-        support = mid - half;
-        resistance = mid + half;
-      }
-
       const cap = q.open * maxMove * 1.4;
       last = Math.min(q.open + cap, Math.max(q.open - cap, Math.max(0.5, last)));
-      const half = Math.max(q.open * 0.00035, 0.01);
+      const spread = Math.max(q.open * 0.00035, 0.01);
 
       return {
         ...q,
         last,
-        bid: last - half,
-        ask: last + half,
+        bid: last - spread,
+        ask: last + spread,
         change: last - q.open,
         support,
         resistance,
