@@ -171,15 +171,6 @@ body {
   width: min(16rem, calc(100% - 10.5rem));
 }
 
-.hud-title {
-  margin: 0;
-  font-size: clamp(1.6rem, 5vw, 2.2rem);
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  color: #f4ffe8;
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
-}
-
 .hud-line,
 .hud-buys {
   margin: 0.25rem 0 0;
