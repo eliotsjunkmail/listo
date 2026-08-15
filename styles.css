@@ -326,9 +326,18 @@ body {
   height: min(70px, 70%);
   min-width: 140px;
   transform: translate(-50%, -50%);
-  transition: left 2.2s linear, width 2.2s ease;
+  transition: left 2.2s linear, width 2.2s ease, top 2.2s linear, height 2.2s ease;
   z-index: 2;
-  will-change: left, width;
+  will-change: left, width, top, height;
+}
+
+body.is-vertical .log {
+  min-width: 0;
+  width: 42%;
+}
+
+body.is-horizontal .log {
+  height: min(70px, 70%);
 }
 
 .log-wood {
@@ -349,6 +358,25 @@ body {
     inset 0 -6px 12px rgba(0, 0, 0, 0.28),
     0 8px 18px rgba(0, 0, 0, 0.28);
   border: 2px solid rgba(60, 30, 10, 0.35);
+}
+
+body.is-vertical .log-wood {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto auto;
+  justify-items: center;
+  gap: 0.15rem;
+  padding: 0.55rem 0.45rem;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 50% 14%, rgba(255, 230, 180, 0.35) 0 9px, transparent 10px),
+    radial-gradient(circle at 50% 86%, rgba(255, 230, 180, 0.35) 0 9px, transparent 10px),
+    linear-gradient(90deg, #c4894a 0%, var(--wood) 42%, var(--wood-deep) 100%);
+}
+
+body.is-vertical .log-sym,
+body.is-vertical .log-last,
+body.is-vertical .log-chg {
+  text-align: center;
 }
 
 .log.is-up .log-wood {

@@ -5,6 +5,7 @@
     symbols: ["SNAP", "META", "GOOG"],
     synthetic: true,
     pace: 4,
+    orientation: "vertical",
   };
 
   const SYNTH_BASE = {
@@ -30,6 +31,7 @@
     synthPace: document.getElementById("synth-pace"),
     paceSlider: document.getElementById("pace-slider"),
     paceValue: document.getElementById("pace-value"),
+    orientation: document.getElementById("orientation"),
     hudCash: document.getElementById("hud-cash"),
     hudBuys: document.getElementById("hud-buys"),
     toast: document.getElementById("toast"),
@@ -94,6 +96,10 @@
     return Math.min(10, Math.max(1, p));
   }
 
+  function normalizeOrientation(raw) {
+    return raw === "horizontal" ? "horizontal" : "vertical";
+  }
+
   function parseSettings(raw) {
     const parsed = JSON.parse(raw);
     const symbols = Array.isArray(parsed.symbols)
@@ -107,6 +113,7 @@
       ],
       synthetic: Boolean(parsed.synthetic),
       pace: clampPace(parsed.pace ?? DEFAULTS.pace),
+      orientation: normalizeOrientation(parsed.orientation ?? DEFAULTS.orientation),
     };
   }
 
@@ -127,6 +134,7 @@
       symbols: [...DEFAULTS.symbols],
       synthetic: DEFAULTS.synthetic,
       pace: DEFAULTS.pace,
+      orientation: DEFAULTS.orientation,
     };
   }
 
@@ -274,36 +282,72 @@
     };
   }
 
-  function pxPerDollar(open, width) {
+  function pxPerDollar(open, span) {
     const band = Math.max(open * 0.04, 0.5);
-    return (width * 0.42) / band;
+    return (span * 0.42) / band;
+  }
+
+  function applyOrientationClass() {
+    const vertical = loadSettings().orientation !== "horizontal";
+    document.body.classList.toggle("is-vertical", vertical);
+    document.body.classList.toggle("is-horizontal", !vertical);
+    return vertical;
   }
 
   function layoutLogs() {
-    const width = els.world.clientWidth || window.innerWidth;
-    const center = width / 2;
-    const minW = 150;
+    const vertical = applyOrientationClass();
+    const worldW = els.world.clientWidth || window.innerWidth;
 
     quotes.forEach((q, i) => {
       const log = els.logs[i];
       if (!log?.el || !q || !Number.isFinite(q.last) || !Number.isFinite(q.open)) return;
+      const lane = log.el.parentElement;
+      if (!lane) return;
 
-      const scale = pxPerDollar(q.open, width);
-      let leftEdge = center + (q.bid - q.open) * scale;
-      let rightEdge = center + (q.ask - q.open) * scale;
-      if (rightEdge - leftEdge < minW) {
-        const mid = center + (q.last - q.open) * scale;
-        leftEdge = mid - minW / 2;
-        rightEdge = mid + minW / 2;
+      if (vertical) {
+        const laneH = lane.clientHeight || 120;
+        const center = laneH / 2;
+        const scale = pxPerDollar(q.open, laneH);
+        const minH = 64;
+        // Higher price → toward top of lane (smaller Y)
+        let topEdge = center - (q.ask - q.open) * scale;
+        let botEdge = center - (q.bid - q.open) * scale;
+        if (botEdge - topEdge < minH) {
+          const mid = center - (q.last - q.open) * scale;
+          topEdge = mid - minH / 2;
+          botEdge = mid + minH / 2;
+        }
+        const h = botEdge - topEdge;
+        let placedMid = (topEdge + botEdge) / 2;
+        const margin = h * 0.3;
+        placedMid = Math.min(laneH - margin, Math.max(margin, placedMid));
+
+        log.el.style.left = "50%";
+        log.el.style.width = Math.min(200, Math.max(110, worldW * 0.42)) + "px";
+        log.el.style.height = h + "px";
+        log.el.style.top = placedMid + "px";
+      } else {
+        const center = worldW / 2;
+        const minW = 150;
+        const scale = pxPerDollar(q.open, worldW);
+        let leftEdge = center + (q.bid - q.open) * scale;
+        let rightEdge = center + (q.ask - q.open) * scale;
+        if (rightEdge - leftEdge < minW) {
+          const mid = center + (q.last - q.open) * scale;
+          leftEdge = mid - minW / 2;
+          rightEdge = mid + minW / 2;
+        }
+        const w = rightEdge - leftEdge;
+        let placedMid = (leftEdge + rightEdge) / 2;
+        const margin = w * 0.35;
+        placedMid = Math.min(worldW - margin, Math.max(margin, placedMid));
+
+        log.el.style.top = "50%";
+        log.el.style.height = "";
+        log.el.style.width = w + "px";
+        log.el.style.left = placedMid + "px";
       }
-      const w = rightEdge - leftEdge;
-      let placedMid = (leftEdge + rightEdge) / 2;
-      // Keep at least ~35% of the log on-screen so it stays jumpable.
-      const margin = w * 0.35;
-      placedMid = Math.min(width - margin, Math.max(margin, placedMid));
 
-      log.el.style.width = w + "px";
-      log.el.style.left = placedMid + "px";
       log.sym.textContent = q.symbol;
       log.last.textContent = slimPrice(q.last);
       log.chg.textContent = slimChange(q.change);
@@ -348,15 +392,17 @@
 
     if (riding && logIdx >= 0) {
       const logBox = els.logs[logIdx].el.getBoundingClientRect();
-      const mid = logBox.left + logBox.width / 2 - worldBox.left;
-      frog.style.left = mid + "px";
-      frogX = mid / worldW;
+      const midX = logBox.left + logBox.width / 2 - worldBox.left;
+      const midY = logBox.top + logBox.height / 2 - worldBox.top - size / 2;
+      frog.style.left = midX + "px";
+      frog.style.top = midY + "px";
+      frogX = midX / worldW;
     } else {
       const x = Math.min(worldW - size / 2 - 8, Math.max(size / 2 + 8, frogX * worldW));
       frog.style.left = x + "px";
+      frog.style.top = laneY(frogLane) + "px";
     }
 
-    frog.style.top = laneY(frogLane) + "px";
     frog.style.bottom = "auto";
   }
 
@@ -572,8 +618,11 @@
 
   function applyLogTransition(intervalMs) {
     const ms = Math.max(280, Math.min(2400, intervalMs * 0.85));
+    const vertical = loadSettings().orientation !== "horizontal";
     els.logs.forEach(({ el }) => {
-      el.style.transition = `left ${ms}ms linear, width ${ms}ms ease`;
+      el.style.transition = vertical
+        ? `top ${ms}ms linear, height ${ms}ms ease`
+        : `left ${ms}ms linear, width ${ms}ms ease`;
     });
   }
 
@@ -654,6 +703,7 @@
     els.symA.value = cfg.symbols[0];
     els.symB.value = cfg.symbols[1];
     els.symC.value = cfg.symbols[2];
+    if (els.orientation) els.orientation.value = cfg.orientation;
     els.scrim.hidden = false;
     els.symA.focus();
   }
@@ -668,13 +718,16 @@
         ],
         synthetic: loadSettings().synthetic,
         pace: loadSettings().pace,
+        orientation: normalizeOrientation(els.orientation?.value),
       };
       persist(next);
       holding = null;
       updateHud();
       quotes = next.symbols.map((s) => seedQuote(s));
+      applyLogTransition(synthParams(next.pace).interval);
       if (next.synthetic) setSynthetic(true);
       else refresh(true);
+      layoutLogs();
     }
     els.scrim.hidden = true;
   }
@@ -684,12 +737,14 @@
   els.symA.value = saved.symbols[0];
   els.symB.value = saved.symbols[1];
   els.symC.value = saved.symbols[2];
+  if (els.orientation) els.orientation.value = saved.orientation;
   quotes = saved.symbols.map((s) => seedQuote(s));
 
   frogX = 0.5;
   placeFrog();
   updateHud();
   updateMarketBadge();
+  applyOrientationClass();
   layoutLogs();
 
   els.synthToggle.addEventListener("click", () => {
