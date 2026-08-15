@@ -154,13 +154,21 @@ body {
   top: max(0.75rem, calc(env(safe-area-inset-top) + 0.45rem));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 4;
+  z-index: 20;
   text-align: center;
   pointer-events: none;
-  width: min(22rem, calc(100% - 2rem));
+  width: min(24rem, calc(100% - 1.5rem));
+}
+
+.hud-top {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.45rem;
 }
 
 .scoreboard {
+  flex: 1 1 auto;
   display: grid;
   grid-template-columns: 1.35fr 1fr;
   gap: 0.45rem;
@@ -173,6 +181,34 @@ body {
     0 0 0 1px rgba(0, 0, 0, 0.45),
     0 10px 24px rgba(0, 0, 0, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  min-width: 0;
+}
+
+.gear {
+  position: static;
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 3.1rem;
+  min-height: 3.1rem;
+  border: 0;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(8, 22, 14, 0.82), rgba(4, 12, 10, 0.88));
+  color: rgba(246, 246, 242, 0.92);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+  border: 2px solid rgba(120, 220, 150, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.45),
+    0 10px 24px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.gear:active {
+  transform: scale(0.96);
 }
 
 .score-panel {
