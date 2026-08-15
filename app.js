@@ -168,10 +168,12 @@
   }
 
   function withLevels(q) {
-    // Wide enough channel so R sits above the log and S below it
-    const gap = Math.max(q.open * 0.02, 0.12);
-    const support = q.last - gap * (1 + Math.random() * 0.35);
-    const resistance = q.last + gap * (1 + Math.random() * 0.35);
+    // Fixed channel around last, wide enough that the log sits between S and R
+    const halfLog = estimateLogHalfPrice(q);
+    const pad = Math.max(q.open * 0.006, 0.04);
+    const gap = halfLog + pad * (1.2 + Math.random() * 0.8);
+    const support = q.last - gap;
+    const resistance = q.last + gap;
     const speed = Math.max(q.open * 0.00018, 0.003);
     return {
       ...q,
@@ -179,6 +181,18 @@
       resistance,
       velocity: (Math.random() > 0.5 ? 1 : -1) * speed,
     };
+  }
+
+  function estimateLogHalfPrice(q) {
+    if (isVertical()) {
+      const laneH = els.river?.clientHeight || 300;
+      const scale = pxPerDollar(q.open, laneH);
+      const h = Math.max(72, Math.min(120, laneH * 0.18));
+      return h / 2 / Math.max(scale, 1e-6);
+    }
+    const worldW = els.world?.clientWidth || window.innerWidth || 390;
+    const scale = pxPerDollar(q.open, worldW);
+    return 75 / Math.max(scale, 1e-6);
   }
 
   function ensureLevels(q) {
