@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=53" />
+    <link rel="stylesheet" href="styles.css?v=54" />
   </head>
   <body class="is-vertical">
     <button type="button" class="synth-toggle" id="synth-toggle" aria-pressed="false">
@@ -92,7 +92,15 @@
       </div>
 
       <div class="bank bank-bottom" aria-hidden="true"></div>
-      <div class="frog" id="frog" aria-label="Frog" role="img"></div>
+      <button
+        type="button"
+        class="frog"
+        id="frog"
+        data-lev="1"
+        aria-label="Leverage 1x. Tap to change"
+      >
+        <span class="frog-lev" id="frog-lev" aria-hidden="true">1×</span>
+      </button>
     </div>
 
     <div class="pad" id="pad" aria-label="Controls">
@@ -139,6 +147,6 @@
       </form>
     </div>
 
-    <script src="app.js?v=53"></script>
+    <script src="app.js?v=54"></script>
   </body>
 </html>

@@ -18,6 +18,7 @@
     world: document.getElementById("world"),
     river: document.getElementById("river"),
     frog: document.getElementById("frog"),
+    frogLev: document.getElementById("frog-lev"),
     gear: document.getElementById("gear"),
     scrim: document.getElementById("scrim"),
     panel: document.getElementById("panel"),
@@ -66,10 +67,12 @@
   let synthTimer = 0;
   let rideRaf = 0;
 
-  /** @type {{symbol:string, shares:number, invested:number}|null} */
+  /** @type {{symbol:string, shares:number, invested:number, entry:number}|null} */
   let holding = null;
   /** Liquid cash after selling back to shore; spent when boarding a log */
   let cash = BUY_DOLLARS;
+  /** Tap the frog to cycle 1× → 2× → 3× → 1× */
+  let leverage = 1;
 
   const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -655,14 +658,36 @@
     if (!holding) return null;
     const q = quoteForSymbol(holding.symbol);
     const px = q && Number.isFinite(q.last) && q.last > 0 ? q.last : null;
-    if (px == null) return null;
-    return holding.shares * px;
+    if (px == null || !Number.isFinite(holding.entry) || holding.entry <= 0) return null;
+    // Margin stays invested; P&L is amplified by leverage
+    const equity = holding.invested * (1 + leverage * (px / holding.entry - 1));
+    return Math.max(0, equity);
+  }
+
+  function updateLeverageUi() {
+    els.frog.dataset.lev = String(leverage);
+    els.frog.setAttribute(
+      "aria-label",
+      "Leverage " + leverage + "x. Tap to change"
+    );
+    if (els.frogLev) els.frogLev.textContent = leverage + "×";
+  }
+
+  function cycleLeverage() {
+    if (!els.scrim.hidden) return;
+    leverage = leverage >= 3 ? 1 : leverage + 1;
+    if (holding && Number.isFinite(holding.entry) && holding.entry > 0) {
+      holding.shares = (holding.invested * leverage) / holding.entry;
+    }
+    updateLeverageUi();
+    updateHud();
+    showToast(leverage + "× leverage");
   }
 
   function updateHud() {
     if (!holding) {
       els.hudCash.textContent = "Cash " + money(cash) + "  " + pnlText(cash);
-      els.hudBuys.textContent = "Jump a log to invest";
+      els.hudBuys.textContent = leverage + "× · Jump a log to invest";
       return;
     }
     const value = holdingValue();
@@ -670,13 +695,15 @@
     const px = q?.last;
     if (value == null || px == null) {
       els.hudCash.textContent = holding.symbol + " —";
-      els.hudBuys.textContent = "";
+      els.hudBuys.textContent = leverage + "×";
       return;
     }
     els.hudCash.textContent = money(value) + "  " + pnlText(value);
     els.hudBuys.textContent =
       holding.symbol +
       " · " +
+      leverage +
+      "× · " +
       holding.shares.toFixed(holding.shares >= 10 ? 2 : 3) +
       " sh @ " +
       slimPrice(px);
@@ -691,7 +718,8 @@
       cash = value;
       showToast("Sold " + from + " → " + money(cash) + " cash");
     } else {
-      showToast("Closed " + from);
+      cash = 0;
+      showToast("Closed " + from + " — wiped out");
     }
     holding = null;
     updateHud();
@@ -704,15 +732,24 @@
 
     if (!holding) {
       const spend = cash > 0 ? cash : BUY_DOLLARS;
+      const notional = spend * leverage;
       holding = {
         symbol: q.symbol,
-        shares: spend / q.last,
+        shares: notional / q.last,
         invested: spend,
+        entry: q.last,
       };
       cash = 0;
       updateHud();
       showToast(
-        "Invested " + money(spend) + " in " + q.symbol + " @ " + slimPrice(q.last)
+        "Invested " +
+          money(spend) +
+          " @ " +
+          leverage +
+          "× in " +
+          q.symbol +
+          " @ " +
+          slimPrice(q.last)
       );
       return;
     }
@@ -723,12 +760,19 @@
     }
 
     const soldValue = holdingValue();
-    if (soldValue == null || soldValue <= 0) return;
+    if (soldValue == null || soldValue <= 0) {
+      holding = null;
+      cash = 0;
+      updateHud();
+      return;
+    }
     const from = holding.symbol;
+    const notional = soldValue * leverage;
     holding = {
       symbol: q.symbol,
-      shares: soldValue / q.last,
+      shares: notional / q.last,
       invested: soldValue,
+      entry: q.last,
     };
     updateHud();
     showToast(
@@ -737,6 +781,8 @@
         " (" +
         money(soldValue) +
         ") → " +
+        leverage +
+        "× " +
         q.symbol +
         " @ " +
         slimPrice(q.last)

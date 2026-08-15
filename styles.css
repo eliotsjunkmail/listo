@@ -629,19 +629,58 @@ body.is-vertical .log-chg {
   left: 50%;
   top: auto;
   bottom: calc(9vh - 8px);
+  padding: 0;
+  border: 0;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: transparent;
   transform: translateX(-50%);
   transition:
     left 0.18s ease,
-    top 0.22s cubic-bezier(0.2, 1.4, 0.4, 1);
-  background:
+    top 0.22s cubic-bezier(0.2, 1.4, 0.4, 1),
+    width 0.18s ease,
+    height 0.18s ease;
+  background-image:
     radial-gradient(circle at 32% 34%, #111 0 2px, transparent 3px),
     radial-gradient(circle at 68% 34%, #111 0 2px, transparent 3px),
     radial-gradient(circle at 32% 32%, #e8ffe8 0 5px, transparent 6px),
     radial-gradient(circle at 68% 32%, #e8ffe8 0 5px, transparent 6px),
     radial-gradient(ellipse at 50% 58%, #2aa84f 0 46%, transparent 47%),
     radial-gradient(ellipse at 50% 42%, #57d97a 0 48%, transparent 49%);
+  background-repeat: no-repeat;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.frog[data-lev="2"] {
+  --frog-size: 50px;
+}
+
+.frog[data-lev="3"] {
+  --frog-size: 56px;
+}
+
+.frog-lev {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 2px);
+  min-width: 1.6rem;
+  padding: 0.08rem 0.28rem;
+  border-radius: 999px;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  color: #f4fff4;
+  background: rgba(12, 40, 22, 0.82);
+  border: 1px solid rgba(120, 220, 150, 0.45);
   pointer-events: none;
+  white-space: nowrap;
 }
 
 .frog.is-riding {
