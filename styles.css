@@ -292,13 +292,13 @@ body.is-vertical .river {
 
 .lane {
   position: relative;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 0;
   overflow: visible;
 }
 
 body.is-vertical .lane {
   border-bottom: 0;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-right: 0;
 }
 
 body.is-vertical .lane:last-child {
