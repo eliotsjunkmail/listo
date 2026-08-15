@@ -168,9 +168,10 @@
   }
 
   function withLevels(q) {
-    const gap = Math.max(q.open * 0.007, 0.04);
-    const support = q.last - gap * (0.85 + Math.random() * 0.5);
-    const resistance = q.last + gap * (0.85 + Math.random() * 0.5);
+    // Wide enough channel so R sits above the log and S below it
+    const gap = Math.max(q.open * 0.02, 0.12);
+    const support = q.last - gap * (1 + Math.random() * 0.35);
+    const resistance = q.last + gap * (1 + Math.random() * 0.35);
     const speed = Math.max(q.open * 0.00018, 0.003);
     return {
       ...q,
@@ -341,7 +342,8 @@
         const laneH = lane.clientHeight || riverH;
         const center = laneH / 2;
         const scale = pxPerDollar(q.open, laneH);
-        const minH = Math.max(110, laneH * 0.28);
+        // Keep logs compact so S/R lines have room above and below
+        const minH = Math.max(72, Math.min(120, laneH * 0.18));
         let topEdge = center - (q.ask - q.open) * scale;
         let botEdge = center - (q.bid - q.open) * scale;
         if (botEdge - topEdge < minH) {
@@ -351,7 +353,7 @@
         }
         const h = botEdge - topEdge;
         let placedMid = (topEdge + botEdge) / 2;
-        const margin = h * 0.28;
+        const margin = h * 0.28 + 36;
         placedMid = Math.min(laneH - margin, Math.max(margin, placedMid));
 
         const colW = lane.clientWidth || worldW / 3;
@@ -359,6 +361,14 @@
         log.el.style.width = Math.min(colW * 0.72, 120) + "px";
         log.el.style.height = h + "px";
         log.el.style.top = placedMid + "px";
+
+        layoutLevelLines(i, q, true, lane, worldW, {
+          mid: placedMid,
+          size: h,
+          span: laneH,
+          center,
+          scale,
+        });
       } else {
         const center = worldW / 2;
         const minW = 150;
@@ -372,13 +382,21 @@
         }
         const w = rightEdge - leftEdge;
         let placedMid = (leftEdge + rightEdge) / 2;
-        const margin = w * 0.35;
+        const margin = w * 0.35 + 36;
         placedMid = Math.min(worldW - margin, Math.max(margin, placedMid));
 
         log.el.style.top = "50%";
         log.el.style.height = "";
         log.el.style.width = w + "px";
         log.el.style.left = placedMid + "px";
+
+        layoutLevelLines(i, q, false, lane, worldW, {
+          mid: placedMid,
+          size: w,
+          span: worldW,
+          center,
+          scale,
+        });
       }
 
       log.sym.textContent = q.symbol;
@@ -386,15 +404,13 @@
       log.chg.textContent = slimChange(q.change);
       log.el.classList.toggle("is-up", q.change > 0.004);
       log.el.classList.toggle("is-down", q.change < -0.004);
-
-      layoutLevelLines(i, q, vertical, lane, worldW);
     });
 
     placeFrog();
     updateHud();
   }
 
-  function layoutLevelLines(i, q, vertical, lane, worldW) {
+  function layoutLevelLines(i, q, vertical, lane, worldW, logBox) {
     const resEl = els.logs[i].res;
     const supEl = els.logs[i].sup;
     if (!resEl || !supEl) return;
@@ -402,7 +418,8 @@
     if (
       !synth ||
       !Number.isFinite(q.support) ||
-      !Number.isFinite(q.resistance)
+      !Number.isFinite(q.resistance) ||
+      !logBox
     ) {
       resEl.hidden = true;
       supEl.hidden = true;
@@ -411,30 +428,51 @@
     resEl.hidden = false;
     supEl.hidden = false;
 
+    const pad = 20;
+    const { mid, size, span, center, scale } = logBox;
+    const logLo = mid - size / 2;
+    const logHi = mid + size / 2;
+
     if (vertical) {
-      const laneH = lane.clientHeight || 300;
-      const center = laneH / 2;
-      const scale = pxPerDollar(q.open, laneH);
-      const resY = center - (q.resistance - q.open) * scale;
-      const supY = center - (q.support - q.open) * scale;
+      // Screen Y: smaller = higher price (toward top)
+      let resY = center - (q.resistance - q.open) * scale;
+      let supY = center - (q.support - q.open) * scale;
+      // Keep resistance clearly above the log, support clearly below
+      if (resY > logLo - pad) resY = logLo - pad;
+      if (supY < logHi + pad) supY = logHi + pad;
+      // Stay on-screen
+      resY = Math.max(10, resY);
+      supY = Math.min(span - 10, Math.max(resY + 24, supY));
+
+      // Sync prices to the visible lines so bounces match what you see
+      q.resistance = q.open + (center - resY) / scale;
+      q.support = q.open + (center - supY) / scale;
+
       resEl.style.top = resY + "px";
       resEl.style.left = "";
+      resEl.style.right = "";
       supEl.style.top = supY + "px";
       supEl.style.left = "";
-      resEl.querySelector("span").textContent = "R " + slimPrice(q.resistance);
-      supEl.querySelector("span").textContent = "S " + slimPrice(q.support);
+      supEl.style.right = "";
     } else {
-      const center = worldW / 2;
-      const scale = pxPerDollar(q.open, worldW);
-      const resX = center + (q.resistance - q.open) * scale;
-      const supX = center + (q.support - q.open) * scale;
+      let resX = center + (q.resistance - q.open) * scale;
+      let supX = center + (q.support - q.open) * scale;
+      if (resX < logHi + pad) resX = logHi + pad;
+      if (supX > logLo - pad) supX = logLo - pad;
+      resX = Math.min(span - 10, resX);
+      supX = Math.max(10, Math.min(resX - 24, supX));
+
+      q.resistance = q.open + (resX - center) / scale;
+      q.support = q.open + (supX - center) / scale;
+
       resEl.style.left = resX + "px";
       resEl.style.top = "";
       supEl.style.left = supX + "px";
       supEl.style.top = "";
-      resEl.querySelector("span").textContent = "R " + slimPrice(q.resistance);
-      supEl.querySelector("span").textContent = "S " + slimPrice(q.support);
     }
+
+    resEl.querySelector("span").textContent = "R " + slimPrice(q.resistance);
+    supEl.querySelector("span").textContent = "S " + slimPrice(q.support);
   }
 
   /** Horizontal rows: lane 0=nearest maps to log index 2. Vertical columns: lane == log index. */
@@ -769,10 +807,10 @@
         }
       }
 
-      // Keep a usable channel width
-      if (resistance - support < q.open * 0.004) {
+      // Keep a usable channel width (room for log + clearance)
+      if (resistance - support < q.open * 0.016) {
         const mid = (support + resistance) / 2;
-        const half = Math.max(q.open * 0.004, 0.03);
+        const half = Math.max(q.open * 0.01, 0.08);
         support = mid - half;
         resistance = mid + half;
       }

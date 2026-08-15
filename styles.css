@@ -312,7 +312,7 @@ body.is-vertical .lane:last-child {
 
 .level {
   position: absolute;
-  z-index: 1;
+  z-index: 3;
   pointer-events: none;
   display: none;
 }
@@ -322,16 +322,16 @@ body.synth-on .level:not([hidden]) {
 }
 
 body.is-vertical .level {
-  left: 6%;
-  right: 6%;
+  left: 4%;
+  right: 4%;
   height: 0;
   border-top: 2px dashed rgba(255, 255, 255, 0.55);
   transform: translateY(-50%);
 }
 
 body.is-horizontal .level {
-  top: 12%;
-  bottom: 12%;
+  top: 10%;
+  bottom: 10%;
   width: 0;
   border-left: 2px dashed rgba(255, 255, 255, 0.55);
   transform: translateX(-50%);
