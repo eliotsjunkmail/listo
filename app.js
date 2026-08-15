@@ -1912,11 +1912,6 @@
     openRoundSheet();
   });
 
-  els.demoOverlay?.addEventListener("click", (e) => {
-    if (e.target === els.demoCta) return;
-    openRoundSheet();
-  });
-
   els.roundClose?.addEventListener("click", () => {
     enterDemoView();
   });
