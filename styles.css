@@ -265,7 +265,7 @@ body {
   height: min(70px, 70%);
   min-width: 140px;
   transform: translate(-50%, -50%);
-  transition: left 0.55s cubic-bezier(0.22, 1, 0.36, 1), width 0.55s ease;
+  transition: left 2.2s linear, width 2.2s ease;
   z-index: 2;
   will-change: left, width;
 }

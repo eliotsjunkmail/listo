@@ -41,7 +41,8 @@
   /** @type {{symbol:string, open:number, last:number, bid:number, ask:number, change:number}[]} */
   let quotes = DEFAULTS.symbols.map((symbol) => seedQuote(symbol));
 
-  /** lane: -1 bottom bank, 0..2 river, 3 top bank */
+  /** frogLane: -1 bottom bank, 0 nearest river log, 1 mid, 2 far, 3 top bank.
+   *  DOM logs are top→bottom as indices 0,1,2 so nearest is log index 2. */
   let frogLane = -1;
   let frogX = 0.5;
   let riding = false;
@@ -298,6 +299,12 @@
     placeFrog();
   }
 
+  /** Map frog lane (0=nearest/bottom) to DOM log index (0=top). */
+  function logIndexForLane(lane) {
+    if (lane < 0 || lane > 2) return -1;
+    return 2 - lane;
+  }
+
   function laneY(lane) {
     const riverTop = els.river.offsetTop;
     const riverH = els.river.clientHeight;
@@ -311,7 +318,9 @@
       return Math.max(12, worldH * 0.09 - frog / 2);
     }
     const laneH = riverH / 3;
-    return riverTop + lane * laneH + laneH / 2 - frog / 2;
+    // lane 0 sits in the bottom river row (closest to the start bank)
+    const row = 2 - lane;
+    return riverTop + row * laneH + laneH / 2 - frog / 2;
   }
 
   function placeFrog() {
@@ -319,9 +328,10 @@
     const worldW = els.world.clientWidth;
     const worldBox = els.world.getBoundingClientRect();
     const size = frog.offsetWidth || 44;
+    const logIdx = logIndexForLane(frogLane);
 
-    if (riding && frogLane >= 0 && frogLane <= 2) {
-      const logBox = els.logs[frogLane].el.getBoundingClientRect();
+    if (riding && logIdx >= 0) {
+      const logBox = els.logs[logIdx].el.getBoundingClientRect();
       const mid = logBox.left + logBox.width / 2 - worldBox.left;
       frog.style.left = mid + "px";
       frogX = mid / worldW;
@@ -399,12 +409,13 @@
       riding = false;
     } else if (dir === "up") {
       const next = Math.min(3, frogLane + 1);
-      if (next >= 0 && next <= 2) {
+      const logIdx = logIndexForLane(next);
+      if (logIdx >= 0) {
         frogLane = next;
         placeFrog();
-        if (frogOverlapsLog(next)) {
+        if (frogOverlapsLog(logIdx)) {
           riding = true;
-          buyOnLog(next);
+          buyOnLog(logIdx);
         } else {
           riding = false;
           splash();
@@ -418,12 +429,13 @@
       }
     } else if (dir === "down") {
       const next = Math.max(-1, frogLane - 1);
-      if (frogLane >= 0 && frogLane <= 2 && next >= 0 && next <= 2) {
+      const logIdx = logIndexForLane(next);
+      if (logIdx >= 0) {
         frogLane = next;
         placeFrog();
-        if (frogOverlapsLog(next)) {
+        if (frogOverlapsLog(logIdx)) {
           riding = true;
-          buyOnLog(next);
+          buyOnLog(logIdx);
         } else {
           riding = false;
           splash();
@@ -445,15 +457,15 @@
   }
 
   function tickSynthetic() {
+    // ~a few basis points per step — logs creep like a quiet trading day
     quotes = quotes.map((q) => {
-      const vol = Math.max(q.open * 0.0007, 0.008);
-      const towardOpen = (q.open - q.last) * 0.04;
-      const drift = (Math.random() - 0.5) * vol * 3 + towardOpen;
+      const step = Math.max(q.open * 0.00012, 0.002);
+      const towardOpen = (q.open - q.last) * 0.015;
+      const drift = (Math.random() - 0.5) * step + towardOpen;
       let last = Math.max(0.5, q.last + drift);
-      // Soft clamp day move so logs stay near the play field.
-      const maxMove = q.open * 0.035;
+      const maxMove = q.open * 0.012;
       last = Math.min(q.open + maxMove, Math.max(q.open - maxMove, last));
-      const half = Math.max(q.open * 0.00045, 0.01) * (0.8 + Math.random() * 0.6);
+      const half = Math.max(q.open * 0.00035, 0.01);
       return {
         ...q,
         last,
@@ -477,11 +489,11 @@
         const existing = quotes.find((q) => q.symbol === s);
         return existing && Number.isFinite(existing.last) ? existing : seedQuote(s);
       });
-      // nudge so logs aren't all centered
+      // Tiny staggered offsets so lanes aren't perfectly stacked at open
       quotes = quotes.map((q, i) => {
-        const nudge = (i - 1) * q.open * 0.008;
+        const nudge = (i - 1) * q.open * 0.0015;
         const last = q.last + nudge;
-        const half = Math.max(q.open * 0.0005, 0.02);
+        const half = Math.max(q.open * 0.00035, 0.01);
         return {
           ...q,
           last,
@@ -491,7 +503,7 @@
         };
       });
       layoutLogs();
-      synthTimer = window.setInterval(tickSynthetic, 900);
+      synthTimer = window.setInterval(tickSynthetic, 2500);
     } else {
       refresh(true);
     }
