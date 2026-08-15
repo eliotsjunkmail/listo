@@ -65,7 +65,6 @@
     leaderboardList: document.getElementById("leaderboard-list"),
     roundStatus: document.getElementById("round-status"),
     roundPlay: document.getElementById("round-play"),
-    roundSave: document.getElementById("round-save"),
     roundClose: document.getElementById("round-close"),
     playerNameField: document.getElementById("player-name-field"),
     logs: [0, 1, 2, 3].map((i) => ({
@@ -1548,21 +1547,22 @@
       player_name: playerName,
       score: Math.round(score),
     };
-    await supabaseFetch("/rest/v1/scores", {
+    const saved = await supabaseFetch("/rest/v1/scores", {
       method: "POST",
-      headers: { Prefer: "return=minimal" },
+      headers: { Prefer: "return=representation" },
       body: JSON.stringify(row),
     });
+    return Array.isArray(saved) ? saved[0] : saved;
   }
 
   async function fetchLeaderboard() {
     const rows = await supabaseFetch(
-      "/rest/v1/scores?select=player_name,score,created_at&order=score.desc,created_at.desc&limit=8"
+      "/rest/v1/scores?select=id,player_name,score,created_at&order=score.desc,created_at.desc&limit=10"
     );
     return Array.isArray(rows) ? rows : [];
   }
 
-  function renderLeaderboard(rows) {
+  function renderLeaderboard(rows, highlightId) {
     if (!els.leaderboard || !els.leaderboardList) return;
     els.leaderboardList.innerHTML = "";
     if (!rows.length) {
@@ -1571,6 +1571,7 @@
     }
     rows.forEach((row, i) => {
       const li = document.createElement("li");
+      if (highlightId && row.id === highlightId) li.classList.add("is-mine");
       const rank = document.createElement("span");
       rank.className = "lb-rank";
       rank.textContent = String(i + 1) + ".";
@@ -1584,6 +1585,8 @@
       els.leaderboardList.appendChild(li);
     });
     els.leaderboard.hidden = false;
+    const mine = els.leaderboardList.querySelector("li.is-mine");
+    if (mine) mine.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 
   function resetRoundPosition() {
@@ -1643,16 +1646,12 @@
     }
     if (els.roundCopy) {
       els.roundCopy.textContent = ended
-        ? "Save your score, or play another minute."
+        ? "Your run is on the board. Play another minute?"
         : "Enter your name and tap Start for a 1-minute run.";
     }
     if (els.roundScore) els.roundScore.hidden = !ended;
     if (els.roundScoreValue) els.roundScoreValue.textContent = scoreMoney(lastFinalScore);
-    if (els.playerNameField) els.playerNameField.hidden = false;
-    if (els.roundSave) {
-      els.roundSave.hidden = !ended;
-      els.roundSave.textContent = "Save score";
-    }
+    if (els.playerNameField) els.playerNameField.hidden = ended;
     if (els.roundPlay) els.roundPlay.textContent = ended ? "Play again" : "Start";
     if (els.roundStatus) {
       els.roundStatus.hidden = true;
@@ -1661,7 +1660,7 @@
     if (!ended && els.leaderboard) els.leaderboard.hidden = true;
     if (els.playerName) {
       els.playerName.value = readStoredPlayerName();
-      els.playerName.focus();
+      if (!ended) els.playerName.focus();
     }
   }
 
@@ -1718,54 +1717,52 @@
     scoreSavedThisRound = false;
     showRoundSheet("ended");
     startDemoMotion();
-    try {
-      if (supabaseConfig()) {
-        const rows = await fetchLeaderboard();
-        renderLeaderboard(rows);
-      } else if (els.leaderboard) {
-        els.leaderboard.hidden = true;
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }
 
-  async function saveRoundScore() {
-    const name = persistPlayerName(els.playerName?.value || "");
-    if (!name) {
-      if (els.roundStatus) {
-        els.roundStatus.hidden = false;
-        els.roundStatus.textContent = "Enter your name to save this score.";
-      }
-      els.playerName?.focus();
-      return false;
-    }
+    const name = readStoredPlayerName() || "Player";
     if (els.roundStatus) {
       els.roundStatus.hidden = false;
       els.roundStatus.textContent = supabaseConfig()
-        ? "Saving score…"
+        ? "Adding your score…"
         : "Supabase not configured.";
     }
+
     try {
       if (!supabaseConfig()) {
+        renderLeaderboard(
+          [{ id: "local", player_name: name, score: lastFinalScore }],
+          "local"
+        );
         if (els.roundStatus) {
-          els.roundStatus.textContent = "Supabase not configured — score not uploaded.";
+          els.roundStatus.textContent = "Score kept locally only.";
         }
-        return false;
+        return;
       }
-      await saveScore(name, lastFinalScore);
+      const saved = await saveScore(name, lastFinalScore);
+      const highlightId = saved?.id || null;
       scoreSavedThisRound = true;
-      const rows = await fetchLeaderboard();
-      renderLeaderboard(rows);
-      if (els.roundStatus) els.roundStatus.textContent = "Score saved to Supabase.";
-      if (els.roundSave) els.roundSave.textContent = "Saved";
-      return true;
+      let rows = await fetchLeaderboard();
+      if (saved && highlightId && !rows.some((r) => r.id === highlightId)) {
+        rows = [...rows, saved].sort((a, b) => {
+          const scoreDiff = Number(b.score) - Number(a.score);
+          if (scoreDiff) return scoreDiff;
+          return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+        });
+      }
+      renderLeaderboard(rows, highlightId);
+      if (els.roundStatus) {
+        els.roundStatus.hidden = true;
+        els.roundStatus.textContent = "";
+      }
     } catch (err) {
       console.error(err);
+      renderLeaderboard(
+        [{ id: "local", player_name: name, score: lastFinalScore }],
+        "local"
+      );
       if (els.roundStatus) {
-        els.roundStatus.textContent = "Could not save to Supabase. Try again.";
+        els.roundStatus.hidden = false;
+        els.roundStatus.textContent = "Could not reach Supabase. Showing this run only.";
       }
-      return false;
     }
   }
 
@@ -1904,9 +1901,6 @@
     hideRoundSheet();
   });
 
-  els.roundSave?.addEventListener("click", () => {
-    saveRoundScore();
-  });
 
   els.timer?.addEventListener("click", () => {
     openRoundSheet();

@@ -380,6 +380,21 @@ body {
   font-size: 0.9rem;
 }
 
+.leaderboard li.is-mine {
+  background: rgba(62, 207, 106, 0.18);
+  border: 1px solid rgba(120, 220, 150, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(62, 207, 106, 0.15);
+}
+
+.leaderboard li.is-mine .lb-name {
+  color: #e8ffe8;
+  font-weight: 700;
+}
+
+.leaderboard li.is-mine .lb-score {
+  color: #5dff8a;
+}
+
 .leaderboard .lb-rank {
   color: rgba(184, 245, 200, 0.7);
   min-width: 1.4rem;
