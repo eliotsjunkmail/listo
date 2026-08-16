@@ -1874,7 +1874,7 @@
     updateTimerUi(ROUND_MS);
     startDemoMotion();
     if (els.roundScrim) els.roundScrim.hidden = true;
-    if (els.hudBuys) els.hudBuys.textContent = "Demo · tap Start game";
+    setHudMeta("");
     syncDemoOverlay();
   }
 
