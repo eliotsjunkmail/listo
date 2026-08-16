@@ -12,7 +12,7 @@
   --score-font: "Orbitron", "Space Grotesk", sans-serif;
   --frog-size: 44px;
   --lane-h: 88px;
-  --hud-clearance: max(9.1rem, calc(env(safe-area-inset-top) + 8.4rem));
+  --hud-clearance: max(12.6rem, calc(env(safe-area-inset-top) + 11.9rem));
 }
 
 *,
@@ -301,7 +301,8 @@ body {
   position: absolute;
   left: 0.65rem;
   right: 0.65rem;
-  top: calc(var(--hud-clearance) + 0.35rem);
+  /* Sit in the top bank, just above the river / logs */
+  top: calc(var(--hud-clearance) - 3.2rem);
   bottom: auto;
   z-index: 21;
   margin: 0;
