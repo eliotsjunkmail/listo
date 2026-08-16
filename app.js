@@ -799,11 +799,9 @@
   function showToast(msg) {
     els.toast.hidden = false;
     els.toast.textContent = msg;
-    if (els.hudBuys) els.hudBuys.hidden = true;
     window.clearTimeout(toastTimer);
     toastTimer = window.setTimeout(() => {
       els.toast.hidden = true;
-      if (els.hudBuys && els.hudBuys.textContent) els.hudBuys.hidden = false;
     }, 1600);
   }
 
@@ -1064,18 +1062,12 @@
     return true;
   }
 
-  function setHudMeta(msg) {
-    if (!els.hudBuys) return;
-    const text = msg == null ? "" : String(msg);
-    els.hudBuys.textContent = text;
-    els.hudBuys.hidden = !text;
-  }
-
   function updateHud() {
     const sideTag = side === "short" ? "Short" : "Long";
     if (!holding) {
       setScoreboard(cash);
-      setHudMeta(sideTag + " " + leverage + "× · Jump a log to invest");
+      els.hudBuys.textContent =
+        sideTag + " " + leverage + "× · Jump a log to invest";
       return;
     }
     const value = holdingValue();
@@ -1088,21 +1080,20 @@
         els.hudChange.classList.remove("is-up", "is-down");
         els.hudChange.classList.add("is-flat");
       }
-      setHudMeta(sideTag + " " + leverage + "×");
+      els.hudBuys.textContent = sideTag + " " + leverage + "×";
       return;
     }
     setScoreboard(value);
-    setHudMeta(
+    els.hudBuys.textContent =
       holding.symbol +
-        " · " +
-        sideTag +
-        " " +
-        leverage +
-        "× · " +
-        holding.shares.toFixed(holding.shares >= 10 ? 2 : 3) +
-        " sh @ " +
-        slimPrice(px)
-    );
+      " · " +
+      sideTag +
+      " " +
+      leverage +
+      "× · " +
+      holding.shares.toFixed(holding.shares >= 10 ? 2 : 3) +
+      " sh @ " +
+      slimPrice(px);
   }
 
   /** Sell / cover the open position into cash (shore). */
@@ -1806,7 +1797,9 @@
       els.playerName.value = readStoredPlayerName();
       if (!ended) els.playerName.focus();
     }
-    if (!ended) setHudMeta("");
+    if (els.hudBuys && !ended) {
+      els.hudBuys.textContent = "Demo · tap Start game";
+    }
     syncDemoOverlay();
   }
 
@@ -1874,7 +1867,7 @@
     updateTimerUi(ROUND_MS);
     startDemoMotion();
     if (els.roundScrim) els.roundScrim.hidden = true;
-    setHudMeta("");
+    if (els.hudBuys) els.hudBuys.textContent = "Demo · tap Start game";
     syncDemoOverlay();
   }
 
