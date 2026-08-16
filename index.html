@@ -11,9 +11,9 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=105" />
+    <link rel="stylesheet" href="styles.css?v=106" />
   </head>
-  <body class="is-vertical">
+  <body class="is-horizontal">
     <div class="app-frame" id="app-frame">
     <button type="button" class="synth-toggle" id="synth-toggle" aria-pressed="false">
       <span class="synth-dot" aria-hidden="true"></span>
@@ -339,18 +339,18 @@
             <input id="sym-d" type="text" maxlength="8" spellcheck="false" autocomplete="off" />
           </label>
         </div>
-        <label class="toggle-field">
+        <label class="toggle-field" hidden>
           <span class="toggle-copy">
             <span class="toggle-title">Log motion</span>
-            <span class="toggle-sub" id="orientation-label">Vertical — up / down</span>
+            <span class="toggle-sub" id="orientation-label">Horizontal — left / right</span>
           </span>
           <input
             id="orientation-toggle"
             class="switch-input"
             type="checkbox"
             role="switch"
-            checked
-            aria-label="Vertical log motion"
+            aria-label="Horizontal log motion"
+            tabindex="-1"
           />
         </label>
         <label class="pace-field" hidden>

@@ -397,7 +397,8 @@ body {
 .leaderboard[hidden],
 #player-name-field[hidden],
 .round-status[hidden],
-.pace-field[hidden] {
+.pace-field[hidden],
+.toggle-field[hidden] {
   display: none !important;
 }
 

@@ -10,7 +10,7 @@
     symbols: ["SNAP", "META", "GOOG", "NVDA"],
     synthetic: false,
     pace: 4,
-    orientation: "vertical",
+    orientation: "horizontal",
     sound: true,
     playerName: "",
   };
@@ -211,8 +211,9 @@
     return Math.min(10, Math.max(1, p));
   }
 
-  function normalizeOrientation(raw) {
-    return raw === "horizontal" ? "horizontal" : "vertical";
+  function normalizeOrientation(_raw) {
+    // Horizontal log motion is fixed; ignore any stored preference.
+    return "horizontal";
   }
 
   function parseSettings(raw) {
@@ -2001,7 +2002,7 @@
         ],
         synthetic: prev.synthetic,
         pace: clampPace(els.paceSlider?.value ?? prev.pace),
-        orientation: normalizeOrientation(orientationFromToggle()),
+        orientation: "horizontal",
         sound: els.soundOn ? !!els.soundOn.checked : true,
         playerName: normalizePlayerName(
           els.settingsPlayerName?.value || readStoredPlayerName()
