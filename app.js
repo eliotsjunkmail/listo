@@ -3,6 +3,7 @@
   const PLAYER_KEY = "frogger-player-name";
   const BUY_DOLLARS = 100_000;
   const ROUND_MS = 5 * 60_000;
+  const LIVE_QUOTE_MS = 15_000;
   const LANE_COUNT = 4;
   const LAST_LOG_LANE = LANE_COUNT - 1;
   const TOP_BANK_LANE = LANE_COUNT;
@@ -109,6 +110,8 @@
   let busy = false;
   let toastTimer = 0;
   let synthTimer = 0;
+  let quoteTimer = 0;
+  let refreshInFlight = false;
   let rideRaf = 0;
   /** While > now, frog eases to the new leverage seat (skip mid-slide rAF snaps) */
   let leverageSlideUntil = 0;
@@ -395,7 +398,8 @@
     return (
       "https://query2.finance.yahoo.com/v8/finance/chart/" +
       encodeURIComponent(symbol) +
-      "?interval=1m&range=1d&includePrePost=false"
+      "?interval=1m&range=1d&includePrePost=false&_=" +
+      Date.now()
     );
   }
 
@@ -1567,14 +1571,35 @@
       });
       layoutLogs();
       startSynthTimer();
+      stopLiveQuoteTimer();
     } else {
       els.logs.forEach(({ res, sup }) => {
         if (res) res.hidden = true;
         if (sup) sup.hidden = true;
       });
       document.body.classList.remove("synth-on");
-      refresh(true);
+      startLiveQuoteTimer();
     }
+  }
+
+  function usingLiveQuotes() {
+    return !loadSettings().synthetic && isNyseOpen();
+  }
+
+  function stopLiveQuoteTimer() {
+    window.clearInterval(quoteTimer);
+    quoteTimer = 0;
+  }
+
+  function startLiveQuoteTimer() {
+    stopLiveQuoteTimer();
+    if (!usingLiveQuotes()) return;
+    refresh(true);
+    quoteTimer = window.setInterval(() => {
+      updateMarketBadge();
+      if (usingLiveQuotes()) refresh(false);
+      else stopLiveQuoteTimer();
+    }, LIVE_QUOTE_MS);
   }
 
   async function refresh(force) {
@@ -1584,6 +1609,8 @@
       layoutLogs();
       return;
     }
+    if (refreshInFlight) return;
+    refreshInFlight = true;
     try {
       const results = await Promise.all(
         cfg.symbols.map(async (symbol) => {
@@ -1599,6 +1626,8 @@
       layoutLogs();
     } catch (err) {
       console.error(err);
+    } finally {
+      refreshInFlight = false;
     }
   }
 
@@ -1896,9 +1925,13 @@
     roundRaf = requestAnimationFrame(tickRoundClock);
     if (loadSettings().synthetic) {
       startSynthTimer();
+      stopLiveQuoteTimer();
     } else if (!isNyseOpen()) {
       // Closed market: keep logs moving so the timed round stays playable.
       startDemoMotion();
+      stopLiveQuoteTimer();
+    } else {
+      startLiveQuoteTimer();
     }
     showToast("Go — 5:00");
     syncStopButton();
@@ -2265,13 +2298,19 @@
 
   syncDemoModeUi(saved.synthetic);
   // Prefer live market data when demo mode is off (default while NYSE is open).
-  if (!saved.synthetic) {
+  if (usingLiveQuotes()) {
+    startLiveQuoteTimer();
+  } else if (!saved.synthetic) {
     refresh(true);
   }
 
   setInterval(() => {
     updateMarketBadge();
-    const cfg = loadSettings();
-    if (!cfg.synthetic && isNyseOpen()) refresh(false);
-  }, 15_000);
+    if (usingLiveQuotes() && !quoteTimer) startLiveQuoteTimer();
+  }, 60_000);
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden || !usingLiveQuotes()) return;
+    refresh(true);
+  });
 })();
