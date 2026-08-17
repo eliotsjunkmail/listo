@@ -122,6 +122,7 @@
   /** @type {"demo"|"playing"|"ended"} */
   let roundState = "demo";
   let roundEndsAt = 0;
+  let roundLengthMs = ROUND_MS;
   let roundRaf = 0;
   let lastFinalScore = BUY_DOLLARS;
   let demoMotion = false;
@@ -359,6 +360,55 @@
     if (hour === 24) hour = 0;
     const mins = hour * 60 + minute;
     return mins >= 9 * 60 + 30 && mins < 16 * 60;
+  }
+
+  function etFormatParts(date) {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+      hour12: false,
+    }).formatToParts(date);
+  }
+
+  /** UTC ms for a civil time in America/New_York (handles EST/EDT). */
+  function etWallToUtcMs(year, month, day, hour, minute, second = 0) {
+    let guess = Date.UTC(year, month - 1, day, hour, minute, second);
+    for (let i = 0; i < 4; i++) {
+      const parts = etFormatParts(new Date(guess));
+      const get = (type) => Number(parts.find((p) => p.type === type)?.value);
+      let partHour = get("hour");
+      if (partHour === 24) partHour = 0;
+      const got = Date.UTC(
+        get("year"),
+        get("month") - 1,
+        get("day"),
+        partHour,
+        get("minute"),
+        get("second")
+      );
+      const want = Date.UTC(year, month - 1, day, hour, minute, second);
+      const diff = want - got;
+      if (!diff) break;
+      guess += diff;
+    }
+    return guess;
+  }
+
+  function msUntilNyseClose(now = new Date()) {
+    const parts = etFormatParts(now);
+    const get = (type) => Number(parts.find((p) => p.type === type)?.value);
+    const close = etWallToUtcMs(get("year"), get("month"), get("day"), 16, 0, 0);
+    return close - now.getTime();
+  }
+
+  function plannedRoundMs() {
+    if (!usingLiveQuotes()) return ROUND_MS;
+    return Math.max(1000, msUntilNyseClose());
   }
 
   function setPillLabel(el, prefix, value) {
@@ -1641,16 +1691,22 @@
 
   function formatClock(ms) {
     const total = Math.max(0, Math.ceil(ms / 1000));
-    const m = Math.floor(total / 60);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
     const s = total % 60;
+    if (h > 0) {
+      return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+    }
     return m + ":" + String(s).padStart(2, "0");
   }
 
   function updateTimerUi(remainingMs) {
-    const pct = Math.max(0, Math.min(1, remainingMs / ROUND_MS));
+    const total = roundLengthMs || ROUND_MS;
+    const pct = Math.max(0, Math.min(1, remainingMs / total));
     if (els.timerBar) els.timerBar.style.width = pct * 100 + "%";
     if (els.timerLabel) els.timerLabel.textContent = formatClock(remainingMs);
     if (els.timer) {
+      els.timer.setAttribute("aria-valuemax", String(Math.ceil(total / 1000)));
       els.timer.setAttribute("aria-valuenow", String(Math.ceil(remainingMs / 1000)));
       els.timer.classList.toggle("is-low", remainingMs <= 20000 && remainingMs > 8000);
       els.timer.classList.toggle("is-critical", remainingMs <= 8000);
@@ -1811,7 +1867,9 @@
     if (els.roundCopy) {
       els.roundCopy.textContent = ended
         ? "Your run is on the board. Play again?"
-        : "Five minutes. Make it count.";
+        : usingLiveQuotes()
+          ? "Play until 4:00 PM ET. Make it count."
+          : "Five minutes. Make it count.";
     }
     if (els.roundScore) els.roundScore.hidden = !ended;
     if (els.roundScoreValue) els.roundScoreValue.textContent = scoreMoney(lastFinalScore);
@@ -1893,6 +1951,7 @@
     roundState = "demo";
     stopRoundClock();
     resetRoundPosition();
+    roundLengthMs = ROUND_MS;
     updateTimerUi(ROUND_MS);
     startDemoMotion();
     if (els.roundScrim) els.roundScrim.hidden = true;
@@ -1917,10 +1976,11 @@
     unlockAudio();
     restoreMotionAfterDemo();
     resetRoundPosition();
-    updateTimerUi(ROUND_MS);
+    roundLengthMs = plannedRoundMs();
+    updateTimerUi(roundLengthMs);
     scoreSavedThisRound = false;
     roundState = "playing";
-    roundEndsAt = performance.now() + ROUND_MS;
+    roundEndsAt = performance.now() + roundLengthMs;
     stopRoundClock();
     roundRaf = requestAnimationFrame(tickRoundClock);
     if (loadSettings().synthetic) {
@@ -1933,7 +1993,9 @@
     } else {
       startLiveQuoteTimer();
     }
-    showToast("Go — 5:00");
+    showToast(
+      usingLiveQuotes() ? "Go — until 4:00 ET" : "Go — " + formatClock(roundLengthMs)
+    );
     syncStopButton();
   }
 
