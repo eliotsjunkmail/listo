@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=Space+Grotesk:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=113" />
+    <link rel="stylesheet" href="styles.css?v=114" />
   </head>
   <body class="is-horizontal">
     <div class="app-frame" id="app-frame">
@@ -25,8 +25,8 @@
       <span class="market-label" id="market-label">Market <span class="pill-value">closed</span></span>
     </div>
 
-    <button type="button" class="app-version" id="app-version" aria-label="Version 113. Tap to hard refresh">
-      v113
+    <button type="button" class="app-version" id="app-version" aria-label="Version 114. Tap to hard refresh">
+      v114
     </button>
 
     <header class="hud" aria-live="polite">
@@ -288,6 +288,9 @@
             <h3>Leaderboard</h3>
             <ol id="leaderboard-list"></ol>
           </div>
+          <p class="round-status" id="round-status" hidden></p>
+        </div>
+        <div class="round-footer">
           <label id="player-name-field">
             Your name
             <input
@@ -299,9 +302,6 @@
               placeholder="Enter your name"
             />
           </label>
-          <p class="round-status" id="round-status" hidden></p>
-        </div>
-        <div class="round-footer">
           <button type="submit" class="done" id="round-play">Start</button>
         </div>
       </form>

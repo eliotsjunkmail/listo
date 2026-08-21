@@ -1746,20 +1746,6 @@ body.is-demo .app-version {
   animation: modal-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.round-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  padding-bottom: 0.25rem;
-}
-
-.round-body > *:not(.leaderboard) {
-  flex: 0 0 auto;
-}
-
 .round-footer {
   flex: 0 0 auto;
   z-index: 2;
@@ -1771,6 +1757,32 @@ body.is-demo .app-version {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   display: grid;
   gap: 0.55rem;
+}
+
+.round-footer #player-name-field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  text-align: left;
+}
+
+.round-footer #player-name-field input {
+  min-height: 2.75rem;
+}
+
+.round-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-bottom: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.round-body > *:not(.leaderboard) {
+  flex: 0 0 auto;
 }
 
 .round-footer .done {

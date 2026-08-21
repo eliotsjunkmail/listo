@@ -1882,7 +1882,10 @@
     if (!ended && els.leaderboard) els.leaderboard.hidden = true;
     if (els.playerName) {
       els.playerName.value = readStoredPlayerName();
-      if (!ended) els.playerName.focus();
+      // Autofocus opens the iOS keyboard and can clip the start sheet.
+      if (!ended && !window.matchMedia("(pointer: coarse)").matches) {
+        els.playerName.focus();
+      }
     }
     if (els.hudBuys && !ended) {
       els.hudBuys.textContent = "Demo · tap Start game";
