@@ -2395,7 +2395,7 @@
     syncStatusPillWidths();
   });
 
-  syncDemoModeUi(saved.synthetic);
+  syncDemoModeUi(loadSettings().synthetic);
   preferLiveWhenMarketOpen();
   // Prefer live market data when demo mode is off (default while NYSE is open).
   if (usingLiveQuotes()) {
