@@ -1600,6 +1600,7 @@
     document.body.classList.toggle("synth-on", on);
     window.clearInterval(synthTimer);
     if (on) {
+      stopLiveQuoteTimer();
       syncPaceUi(cfg.pace);
       quotes = cfg.symbols.map((s) => {
         const existing = quotes.find((q) => q.symbol === s);
@@ -1621,19 +1622,37 @@
       });
       layoutLogs();
       startSynthTimer();
-      stopLiveQuoteTimer();
+      demoMotion = roundState === "demo";
     } else {
+      demoMotion = false;
       els.logs.forEach(({ res, sup }) => {
         if (res) res.hidden = true;
         if (sup) sup.hidden = true;
       });
       document.body.classList.remove("synth-on");
-      startLiveQuoteTimer();
+      if (usingLiveQuotes()) startLiveQuoteTimer();
+      else refresh(true);
+      if (roundState === "demo") {
+        roundLengthMs = plannedRoundMs();
+        updateTimerUi(roundLengthMs);
+      }
     }
   }
 
   function usingLiveQuotes() {
     return !loadSettings().synthetic && isNyseOpen();
+  }
+
+  /** When NYSE is open, prefer live quotes over a stale Demo mode cookie. */
+  function preferLiveWhenMarketOpen() {
+    if (!isNyseOpen()) return false;
+    const cfg = loadSettings();
+    if (!cfg.synthetic) return false;
+    cfg.synthetic = false;
+    persist(cfg);
+    syncDemoModeUi(false);
+    document.body.classList.remove("synth-on");
+    return true;
   }
 
   function stopLiveQuoteTimer() {
@@ -1954,11 +1973,24 @@
     roundState = "demo";
     stopRoundClock();
     resetRoundPosition();
-    roundLengthMs = ROUND_MS;
-    updateTimerUi(ROUND_MS);
-    startDemoMotion();
+    preferLiveWhenMarketOpen();
+    roundLengthMs = plannedRoundMs();
+    updateTimerUi(roundLengthMs);
+    if (usingLiveQuotes()) {
+      demoMotion = false;
+      window.clearInterval(synthTimer);
+      document.body.classList.remove("synth-on");
+      els.logs.forEach(({ res, sup }) => {
+        if (res) res.hidden = true;
+        if (sup) sup.hidden = true;
+      });
+      startLiveQuoteTimer();
+      if (els.hudBuys) els.hudBuys.textContent = "Live · tap Start game";
+    } else {
+      startDemoMotion();
+      if (els.hudBuys) els.hudBuys.textContent = "Demo · tap Start game";
+    }
     if (els.roundScrim) els.roundScrim.hidden = true;
-    if (els.hudBuys) els.hudBuys.textContent = "Demo · tap Start game";
     syncDemoOverlay();
   }
 
@@ -2149,6 +2181,8 @@
   updateMarketBadge();
   applyOrientationClass();
   layoutLogs();
+  preferLiveWhenMarketOpen();
+  syncDemoModeUi(loadSettings().synthetic);
   enterDemoView();
 
   els.frog.addEventListener("click", (e) => {
@@ -2362,16 +2396,23 @@
   });
 
   syncDemoModeUi(saved.synthetic);
+  preferLiveWhenMarketOpen();
   // Prefer live market data when demo mode is off (default while NYSE is open).
   if (usingLiveQuotes()) {
     startLiveQuoteTimer();
-  } else if (!saved.synthetic) {
+  } else if (!loadSettings().synthetic) {
     refresh(true);
   }
 
   setInterval(() => {
+    const wasLive = usingLiveQuotes();
     updateMarketBadge();
-    if (usingLiveQuotes() && !quoteTimer) startLiveQuoteTimer();
+    if (preferLiveWhenMarketOpen() || (usingLiveQuotes() && !wasLive)) {
+      if (roundState === "demo") enterDemoView();
+      else startLiveQuoteTimer();
+    } else if (usingLiveQuotes() && !quoteTimer) {
+      startLiveQuoteTimer();
+    }
   }, 60_000);
 
   document.addEventListener("visibilitychange", () => {

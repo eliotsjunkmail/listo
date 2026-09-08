@@ -1600,12 +1600,16 @@ body.is-vertical .log.is-down .log-wood {
   background: rgba(255, 255, 255, 0.06);
 }
 
-body.is-demo .pad,
+body.is-demo .pad {
+  opacity: 0;
+  pointer-events: none;
+}
+
 body.is-demo .synth-toggle,
 body.is-demo .market,
 body.is-demo .app-version {
-  opacity: 0;
-  pointer-events: none;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 @keyframes demo-cta-pulse {
